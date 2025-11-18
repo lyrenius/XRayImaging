@@ -1,5 +1,4 @@
 import sys
-import numpy as np
 import matplotlib.pyplot as plt
 from astropy.io import fits
 
@@ -31,10 +30,19 @@ if __name__ == '__main__':
     elif sys.argv[1] == "write":
         print("writing")
         # storage detected position
-        source_coord_array = np.array(source_coord_list)
-        col1 = fits.Column(name='x', format='I', array=source_coord_array[:, 0]) 
-        col2 = fits.Column(name='y', format='I', array=source_coord_array[:, 1])
-        col3 = fits.Column(name='countrate', format='D', array=source_coord_array[:, 2])
+        xx = []
+        yy = []
+        RR = []
+        with open("detection_info.txt", "r") as f:
+            for line in f:
+                x, y, R = tuple(map(float, line.strip().split()))
+                xx.append(x)
+                yy.append(y)
+                RR.append(R)
+                
+        col1 = fits.Column(name='x', format='I', array=xx) 
+        col2 = fits.Column(name='y', format='I', array=yy)
+        col3 = fits.Column(name='countrate', format='D', array=RR)
         cols = fits.ColDefs([col1, col2, col3])
         tbhdu = fits.BinTableHDU.from_columns(cols)
         prihdr = fits.Header()

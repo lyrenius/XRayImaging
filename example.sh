@@ -10,4 +10,6 @@
 source ~/.bashrc
 conda activate mystery
 
+g++ enum.cpp -o enum -O3
+
 bash run.sh

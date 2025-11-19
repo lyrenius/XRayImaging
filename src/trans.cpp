@@ -38,7 +38,10 @@ void read() {
 
   std::cout << "reading" << std::endl;
 
-  fits_open_file(&fptr, "../data/mock_data.fits", READONLY, &status);
+  const char* submit_dir = std::getenv("SLURM_SUBMIT_DIR");
+
+  std::string mock_file = std::string(submit_dir) + "/data/mock_data.fits";
+  fits_open_file(&fptr, mock_file.c_str(), READONLY, &status);
   CHECK_STATUS(status);
 
   // Python hdu[1] -> CFITSIO HDU
@@ -65,7 +68,8 @@ void read() {
   fits_close_file(fptr, &status);
   CHECK_STATUS(status);
 
-  FILE *fp = std::fopen("../data/mock_data.txt", "w");
+  std::string mock_text = std::string(submit_dir) + "/data/mock_data.txt";
+  FILE *fp = std::fopen(mock_text.c_str(), "w");
   if (!fp) {
     std::perror("fopen mock_data.txt");
     std::exit(EXIT_FAILURE);
@@ -94,7 +98,10 @@ void show() {
 
   std::cout << "showing" << std::endl;
 
-  fits_open_file(&fptr, "../data/source_info.fits", READONLY, &status);
+  const char* submit_dir = std::getenv("SLURM_SUBMIT_DIR");
+
+  std::string source_file = std::string(submit_dir) + "/data/source_info.fits";
+  fits_open_file(&fptr, source_file.c_str(), READONLY, &status);
   CHECK_STATUS(status);
 
   fits_movabs_hdu(fptr, 2, &hdutype, &status);
@@ -134,7 +141,8 @@ void show() {
 
   std::sort(arr.begin(), arr.end());
 
-  FILE *fp = std::fopen("../data/source_info.txt", "w");
+  std::string source_text = std::string(submit_dir) + "/data/source_info.txt";
+  FILE *fp = std::fopen(source_text.c_str(), "w");
   if (!fp) {
     std::perror("fopen source_info.txt");
     std::exit(EXIT_FAILURE);
@@ -153,7 +161,10 @@ void show() {
 void write() {
   std::cout << "writing" << std::endl;
 
-  FILE *fp = std::fopen("../data/detection_info.txt", "r");
+  const char* submit_dir = std::getenv("SLURM_SUBMIT_DIR");
+
+  std::string detection_text = std::string(submit_dir) + "/data/detection_info.txt";
+  FILE *fp = std::fopen(detection_text.c_str(), "r");
   if (!fp) {
     std::perror("fopen detection_info.txt");
     std::exit(EXIT_FAILURE);
@@ -175,7 +186,7 @@ void write() {
 
   std::vector<double> xx(nrows), yy(nrows), RR(nrows);
 
-  fp = std::fopen("../data/detection_info.txt", "r");
+  fp = std::fopen(detection_text.c_str(), "r");
   if (!fp) {
     std::perror("fopen detection_info.txt");
     std::exit(EXIT_FAILURE);

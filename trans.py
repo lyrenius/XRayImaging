@@ -1,47 +1,59 @@
 import sys
-import matplotlib.pyplot as plt
+import numpy as np
 from astropy.io import fits
 
 if __name__ == '__main__':
     
     if sys.argv[1] == "read":
         print("reading")
-        # read data
-        hdu = fits.open('mock_data.fits')
-        x_coord = hdu[1].data['x']
-        y_coord = hdu[1].data['y']
+        # memmap to reduce memory copy
+        hdu = fits.open('mock_data.fits', memmap=True)
+        data = hdu[1].data
+        x_coord = data['x']
+        y_coord = data['y']
+        
+        n = len(x_coord)
+        arr = np.column_stack((x_coord, y_coord))
+        
+        # write all in one go
         with open('mock_data.txt', 'w') as f:
-            print(len(x_coord), file=f)
-            for x, y in zip(x_coord, y_coord):
-                print(x, y, file=f)
+            f.write(f"{n}\n")
+            np.savetxt(f, arr, fmt="%d %d")
         print("reading done")
     
     elif sys.argv[1] == "show":
         print("showing")
-        hdu = fits.open("source_info.fits")
-        res_x = hdu[1].data['x']
-        res_y = hdu[1].data['y']
-        res_R = hdu[1].data['countrate']
+        hdu = fits.open("source_info.fits", memmap=True)
+        data = hdu[1].data
+        res_x = data['x'].astype(float)
+        res_y = data['y'].astype(float)
+        res_R = data['countrate'].astype(float)
+        
+        # sorted(zip(x, y, R))
+        idx = np.lexsort((res_R, res_y, res_x))
+        sx = res_x[idx]
+        sy = res_y[idx]
+        sR = res_R[idx]
+        
+        arr = np.column_stack((sx, sy, sR))
         with open("source_info.txt", "w") as f:
-            for x, y, R in sorted(list(zip(res_x, res_y, res_R))):
-                print(f"{x} {y} {R:.6f}", file=f)
+            np.savetxt(f, arr, fmt="%.0f %.0f %.6f")
         print("showing done")
         
     elif sys.argv[1] == "write":
         print("writing")
-        # storage detected position
-        xx = []
-        yy = []
-        RR = []
-        with open("detection_info.txt", "r") as f:
-            for line in f:
-                x, y, R = tuple(map(float, line.strip().split()))
-                xx.append(x)
-                yy.append(y)
-                RR.append(R)
-                
-        col1 = fits.Column(name='x', format='I', array=xx) 
-        col2 = fits.Column(name='y', format='I', array=yy)
+        # load all data at once
+        data = np.loadtxt("detection_info.txt")
+        xx = data[:, 0]
+        yy = data[:, 1]
+        RR = data[:, 2]
+        
+        # if x,y are integer in fact, cast to int to match format='I'
+        xx_int = xx.astype('int64')
+        yy_int = yy.astype('int64')
+        
+        col1 = fits.Column(name='x', format='I', array=xx_int)
+        col2 = fits.Column(name='y', format='I', array=yy_int)
         col3 = fits.Column(name='countrate', format='D', array=RR)
         cols = fits.ColDefs([col1, col2, col3])
         tbhdu = fits.BinTableHDU.from_columns(cols)

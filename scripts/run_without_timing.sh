@@ -21,7 +21,7 @@ g++ -std=c++20 -O3 -march=native $PARENT_DIR/src/trans.cpp \
   -lcfitsio -lm \
   -o $PARENT_DIR/bin/trans
 
-g++ -O3 -o $PARENT_DIR/bin/ratio_calculate $PARENT_DIR/src/ratio_calculate.cpp
+g++ -std=c++20 -O3 -march=native -o $PARENT_DIR/bin/ratio_calculate $PARENT_DIR/src/ratio_calculate.cpp
 
 echo "X Ray Image task:"
 

@@ -18,14 +18,12 @@ fi
 
 CFITSIO_PATH=$SLURM_SUBMIT_DIR/cfitsio
 
-g++ -std=c++20 -O3 -march=native $SLURM_SUBMIT_DIR/src/trans.cpp \
+g++ -std=c++20 -O3 -march=native $SLURM_SUBMIT_DIR/src/ratio_calculate.cpp \
   -I $CFITSIO_PATH/include \
   -L $CFITSIO_PATH/lib \
   -Wl,-rpath,"$CFITSIO_PATH/lib" \
-  -lcfitsio -lm \
-  -o $SLURM_SUBMIT_DIR/bin/trans
-
-g++ -std=c++20 -O3 -march=native -o $SLURM_SUBMIT_DIR/bin/ratio_calculate $SLURM_SUBMIT_DIR/src/ratio_calculate.cpp
+  -lcfitsio \
+  -o $SLURM_SUBMIT_DIR/bin/ratio_calculate
 
 # ---- timing helper (prints only to stderr) ----
 measure_step() {
@@ -47,9 +45,7 @@ echo "================================================================"
 echo "[$(date +"%Y-%m-%d %H:%M:%S.%3N")] Running..."
 echo "================================================================"
 
-measure_step "trans read" $SLURM_SUBMIT_DIR/bin/trans read
 measure_step "ratio_calculate" $SLURM_SUBMIT_DIR/bin/ratio_calculate
-measure_step "trans write" $SLURM_SUBMIT_DIR/bin/trans write
 
 echo "================================================================"
 echo "[$(date +"%Y-%m-%d %H:%M:%S.%3N")] Checking..."

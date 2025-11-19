@@ -8,11 +8,12 @@
 #SBATCH --ntasks-per-node=56
 
 source ~/.bashrc
+module load compilers/gcc/v12.2.0
 conda activate mystery
 
 CFITSIO_PATH=$PWD/cfitsio
 
-g++ -O3 -march=native trans.cpp \
+g++ -std=c++20 -O3 -march=native trans.cpp \
   -I$CFITSIO_PATH/include \
   -L$CFITSIO_PATH/lib \
   -lcfitsio -lm \

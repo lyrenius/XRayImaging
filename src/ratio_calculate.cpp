@@ -116,8 +116,9 @@ void detection()
 
 int main()
 {
-    std::ifstream fin("mock_data.txt");
-    std::ofstream fout("detection_info.txt");
+    const char* submit_dir = std::getenv("SLURM_SUBMIT_DIR");
+    std::ifstream fin(std::string(submit_dir) + "/data/mock_data.txt");
+    std::ofstream fout(std::string(submit_dir) + "/data/detection_info.txt");
 
     int data_size;
     fin >> data_size;

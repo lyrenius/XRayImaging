@@ -5,6 +5,7 @@
 #include <vector>
 #include <tuple>
 #include <cmath>
+#include <chrono>
 
 using std::max;
 using std::min;
@@ -65,6 +66,8 @@ float PSF_frac_calc(float x,float y,float delta_x, float delta_y)
 
 void work()
 {
+    auto StartTime = std::chrono::high_resolution_clock::now();
+
     constexpr int ITERATION_COUNT = 10;
 
     for(int x = 0; x < LEN; x++) {
@@ -99,10 +102,18 @@ void work()
             ratio[x][y] = res - TIME * R;
         }
     }
+
+    auto EndTime = std::chrono::high_resolution_clock::now();
+
+    std::chrono::duration<double> Elapsed = EndTime - StartTime;
+
+    std::cerr << "Detection time: " << Elapsed.count() * 1000.0 << " ms" << std::endl;
 }
 
 void detection()
 {
+    auto StartTime = std::chrono::high_resolution_clock::now();
+
     constexpr float threshold = 8.0;
 
     for(int x = 10; x < 500; x++) {
@@ -125,18 +136,24 @@ void detection()
             }
         }
     }
+
+    auto EndTime = std::chrono::high_resolution_clock::now();
+
+    std::chrono::duration<double> Elapsed = EndTime - StartTime;
+
+    std::cerr << "Detection time: " << Elapsed.count() * 1000.0 << " ms" << std::endl;
 }
 
 void read_data()
 {
+    auto StartTime = std::chrono::high_resolution_clock::now();
+
     fitsfile *fptr = nullptr;
     int status = 0;
     int hdutype = 0;
     long nrows = 0;
     int col_x = 0, col_y = 0;
     int anynul = 0;
-
-    std::cout << "reading" << std::endl;
 
     const char* submit_dir = std::getenv("SLURM_SUBMIT_DIR");
 
@@ -171,10 +188,18 @@ void read_data()
     for(int i = 0; i < nrows; i++) {
         count[x[i]][y[i]]++;
     }
+
+    auto EndTime = std::chrono::high_resolution_clock::now();
+
+    std::chrono::duration<double> Elapsed = EndTime - StartTime;
+
+    std::cerr << "Detection time: " << Elapsed.count() * 1000.0 << " ms" << std::endl;
 }
 
 void write_result()
 {
+    auto StartTime = std::chrono::high_resolution_clock::now();
+
     fitsfile *fptr = nullptr;
     int status = 0;
 
@@ -233,6 +258,12 @@ void write_result()
 
     fits_close_file(fptr, &status);
     CHECK_STATUS(status);
+
+    auto EndTime = std::chrono::high_resolution_clock::now();
+
+    std::chrono::duration<double> Elapsed = EndTime - StartTime;
+
+    std::cerr << "Detection time: " << Elapsed.count() * 1000.0 << " ms" << std::endl;
 }
 
 int main()

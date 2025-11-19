@@ -1,3 +1,5 @@
-logs
-.venv
-.vscode
+.venv/
+.vscode/
+
+logs/
+cfitsio/

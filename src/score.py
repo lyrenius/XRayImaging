@@ -6,9 +6,8 @@ def score_calc():
     '''
     This function calculates the score of the detection results
     '''
-    CUR_DIR = os.path.dirname(os.path.abspath(__file__))
-    PARENT_DIR = os.path.dirname(CUR_DIR)
-    DATA_DIR = os.path.join(PARENT_DIR, "data")
+    SUBMIT_DIR = os.environ.get("SLURM_SUBMIT_DIR")
+    DATA_DIR = os.path.join(SUBMIT_DIR, "data")
 
     hdu0 = fits.open(os.path.join(DATA_DIR, "source_info.fits"))
     x_coord = hdu0[1].data['x']

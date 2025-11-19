@@ -5,14 +5,14 @@ def score_calc():
     '''
     This function calculates the score of the detection results
     '''
-    hdu0 = fits.open('source_info.fits')
+    hdu0 = fits.open('../data/source_info.fits')
     x_coord = hdu0[1].data['x']
     y_coord = hdu0[1].data['y']
     rate = hdu0[1].data['countrate']
     source_data = np.column_stack((x_coord,y_coord,rate))
     hdu0.close()
 
-    hdu1 = fits.open('detection_info.fits')
+    hdu1 = fits.open('../data/detection_info.fits')
     x_coord = hdu1[1].data['x']
     y_coord = hdu1[1].data['y']
     rate = hdu1[1].data['countrate']

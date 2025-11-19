@@ -2,7 +2,5 @@
 .vscode/
 logs/
 cfitsio/
-
-ratio_calculate
-
+cfitsio-4.6.3/
 *.txt

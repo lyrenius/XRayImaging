@@ -13,7 +13,7 @@ conda activate mystery
 
 if [[ -z "$SLURM_SUBMIT_DIR" ]]; then
   SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)"
-  SLURM_SUBMIT_DIR="$(dirname "$SCRIPT_DIR")"
+  export SLURM_SUBMIT_DIR="$(dirname "$SCRIPT_DIR")"
 fi
 
 CFITSIO_PATH=$SLURM_SUBMIT_DIR/cfitsio

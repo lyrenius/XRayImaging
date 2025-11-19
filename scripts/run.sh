@@ -13,13 +13,13 @@ conda activate mystery
 
 CFITSIO_PATH=$PWD/cfitsio
 
-g++ -std=c++20 -O3 -march=native trans.cpp \
+g++ -std=c++20 -O3 -march=native src/trans.cpp \
   -I$CFITSIO_PATH/include \
   -L$CFITSIO_PATH/lib \
   -lcfitsio -lm \
-  -o trans
+  -o bin/trans
 
-g++ -O3 -o ratio_calculate ratio_calculate.cpp
+g++ -O3 -o bin/ratio_calculate src/ratio_calculate.cpp
 
 # ---- timing helper (prints only to stderr) ----
 measure_step() {
@@ -41,15 +41,15 @@ echo "================================================================"
 echo "[$(date +"%Y-%m-%d %H:%M:%S.%3N")] Running..."
 echo "================================================================"
 
-measure_step "trans read" ./trans read
-measure_step "ratio_calculate" ./ratio_calculate
-measure_step "trans write" ./trans write
+measure_step "trans read" ./bin/trans read
+measure_step "ratio_calculate" ./bin/ratio_calculate
+measure_step "trans write" ./bin/trans write
 
 echo "================================================================"
 echo "[$(date +"%Y-%m-%d %H:%M:%S.%3N")] Checking..."
 echo "================================================================"
 
-python score.py
+python src/score.py
 
 echo "================================================================"
 echo "[$(date +"%Y-%m-%d %H:%M:%S.%3N")] Done."

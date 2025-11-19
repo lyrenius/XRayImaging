@@ -214,7 +214,7 @@ void write() {
   int status = 0;
 
   // "!" to overwrite existing file
-  fits_create_file(&fptr, "!detection_info.fits", &status);
+  fits_create_file(&fptr, "!data/detection_info.fits", &status);
   CHECK_STATUS(status);
 
   // primary HDU

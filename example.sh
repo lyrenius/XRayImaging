@@ -10,6 +10,14 @@
 source ~/.bashrc
 conda activate mystery
 
-g++ enum.cpp -o enum -O3
+CFITSIO_PATH=$PWD/cfitsio
+
+g++ -O3 -march=native trans.cpp \
+  -I$CFITSIO_PATH/include \
+  -L$CFITSIO_PATH/lib \
+  -lcfitsio -lm \
+  -o trans
+
+g++ -O3 -o ratio_calculate ratio_calculate.cpp
 
 bash run.sh

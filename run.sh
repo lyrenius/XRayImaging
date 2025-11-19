@@ -6,9 +6,9 @@ echo "================================================================"
 echo "[$(date +"%Y-%m-%d %H:%M:%S.%3N")] Running..."
 echo "================================================================"
 
-python trans.py read
-./enum
-python trans.py write
+./trans read
+./ratio_calculate
+./trans write
 
 echo "================================================================"
 echo "[$(date +"%Y-%m-%d %H:%M:%S.%3N")] Checking..."

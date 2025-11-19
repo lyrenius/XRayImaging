@@ -11,15 +11,17 @@ source ~/.bashrc
 module load compilers/gcc/v12.2.0
 conda activate mystery
 
-CFITSIO_PATH=$PWD/cfitsio
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)"
+PARENT_DIR="$(dirname "$SCRIPT_DIR")"
+CFITSIO_PATH=$PARENT_DIR/cfitsio
 
-g++ -std=c++20 -O3 -march=native src/trans.cpp \
+g++ -std=c++20 -O3 -march=native $PARENT_DIR/src/trans.cpp \
   -I$CFITSIO_PATH/include \
   -L$CFITSIO_PATH/lib \
   -lcfitsio -lm \
-  -o bin/trans
+  -o $PARENT_DIR/bin/trans
 
-g++ -O3 -o bin/ratio_calculate src/ratio_calculate.cpp
+g++ -O3 -o $PARENT_DIR/bin/ratio_calculate $PARENT_DIR/src/ratio_calculate.cpp
 
 # ---- timing helper (prints only to stderr) ----
 measure_step() {
@@ -41,15 +43,15 @@ echo "================================================================"
 echo "[$(date +"%Y-%m-%d %H:%M:%S.%3N")] Running..."
 echo "================================================================"
 
-measure_step "trans read" ./bin/trans read
-measure_step "ratio_calculate" ./bin/ratio_calculate
-measure_step "trans write" ./bin/trans write
+measure_step "trans read" $PARENT_DIR/bin/trans read
+measure_step "ratio_calculate" $PARENT_DIR/bin/ratio_calculate
+measure_step "trans write" $PARENT_DIR/bin/trans write
 
 echo "================================================================"
 echo "[$(date +"%Y-%m-%d %H:%M:%S.%3N")] Checking..."
 echo "================================================================"
 
-python src/score.py
+python $PARENT_DIR/src/score.py
 
 echo "================================================================"
 echo "[$(date +"%Y-%m-%d %H:%M:%S.%3N")] Done."

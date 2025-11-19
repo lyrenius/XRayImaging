@@ -11,3 +11,4 @@ CFITSIO_PATH=cfitsio
 cd cfitsio-*
 ./configure --prefix=$PWD/../cfitsio
 make -j
+make install

@@ -11,6 +11,11 @@ source ~/.bashrc
 module load compilers/gcc/v12.2.0
 conda activate mystery
 
+if [[ -z "$SLURM_SUBMIT_DIR" ]]; then
+  SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)"
+  SLURM_SUBMIT_DIR="$(dirname "$SCRIPT_DIR")"
+fi
+
 CFITSIO_PATH=$SLURM_SUBMIT_DIR/cfitsio
 
 g++ -std=c++20 -O3 -march=native $SLURM_SUBMIT_DIR/src/trans.cpp \

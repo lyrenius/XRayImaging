@@ -15,11 +15,12 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)"
 PARENT_DIR="$(dirname "$SCRIPT_DIR")"
 CFITSIO_PATH=$PARENT_DIR/cfitsio
 
-g++ -std=c++20 -O3 -march=native $PARENT_DIR/src/trans.cpp \
-  -I$CFITSIO_PATH/include \
-  -L$CFITSIO_PATH/lib \
-  -lcfitsio -lm \
-  -o $PARENT_DIR/bin/trans
+ g++ -std=c++20 -O3 -march=native $PARENT_DIR/src/trans.cpp \
+   -I $CFITSIO_PATH/include \
+   -L $CFITSIO_PATH/lib \
+   -Wl,-rpath,"$CFITSIO_PATH/lib" \
+   -lcfitsio -lm \
+   -o $PARENT_DIR/bin/trans
 
 g++ -std=c++20 -O3 -march=native -o $PARENT_DIR/bin/ratio_calculate $PARENT_DIR/src/ratio_calculate.cpp
 

@@ -6,12 +6,16 @@
 #include <tuple>
 #include <cmath>
 #include <chrono>
+#include <thread>
 
 using std::max;
 using std::min;
 
+constexpr int NUM_THREADS = 16;
+
 constexpr int LEN = 512;
 constexpr int PSF_SIZE = 15;
+constexpr int ITERATION_COUNT = 10;
 
 constexpr float bkg_rate = 1e-5;
 constexpr int TIME = 1000;
@@ -27,7 +31,6 @@ constexpr int TIME = 1000;
 int count[LEN][LEN];
 float ratio[LEN][LEN];
 float Rval[LEN][LEN];
-std::vector<std::pair<float,int>> PSF_list;
 std::vector<int> source_x;
 std::vector<int> source_y;
 std::vector<double> source_R;
@@ -64,43 +67,63 @@ float PSF_frac_calc(float x,float y,float delta_x, float delta_y)
     return normalization_factor * exp(-exponent);
 }
 
+void calc(int x, int y)
+{
+    std::vector<std::pair<float,int>> PSF_list;
+
+    PSF_list.clear();
+
+    for(int i = max(0, x - PSF_SIZE / 2); i < min(LEN, x + PSF_SIZE / 2 + 1); i++) {
+        for(int j = max(0, y - PSF_SIZE / 2); j < min(LEN, y + PSF_SIZE / 2 + 1); j++) {
+            if(count[i][j]) {
+                PSF_list.emplace_back(PSF_frac_calc(x, y, i - x, j - y), count[i][j]);
+            }
+        }
+    }
+
+    float R = 0.05;
+
+    for(int iter = 0; iter < ITERATION_COUNT; iter++) {
+        float tmp_R = 0;
+        for(auto [s, c] : PSF_list) {
+            tmp_R += c * (R * s) / ((R * s + bkg_rate) * TIME);
+        }
+        R = tmp_R;
+    }
+
+    Rval[x][y] = R;
+    
+    float res = 0;
+    for(auto [s, c] : PSF_list) {
+        res += c * log((R * s + bkg_rate) / bkg_rate);
+    }
+
+    ratio[x][y] = res - TIME * R;
+}
+
+void worker(int id)
+{
+    for(int x = 0; x < LEN; x++) {
+        for(int y = 0; y < LEN; y++) {
+            if((x * LEN + y) % NUM_THREADS == id) {
+                calc(x, y);
+            }
+        }
+    }
+}
+
 void work()
 {
     auto StartTime = std::chrono::high_resolution_clock::now();
 
-    constexpr int ITERATION_COUNT = 10;
+    std::vector<std::thread> threads;
 
-    for(int x = 0; x < LEN; x++) {
-        for(int y = 0; y < LEN; y++) {
-            PSF_list.clear();
+    for(int i = 0; i < NUM_THREADS; i++) {
+        threads.emplace_back(worker, i);
+    }
 
-            for(int i = max(0, x - PSF_SIZE / 2); i < min(LEN, x + PSF_SIZE / 2 + 1); i++) {
-                for(int j = max(0, y - PSF_SIZE / 2); j < min(LEN, y + PSF_SIZE / 2 + 1); j++) {
-                    if(count[i][j]) {
-                        PSF_list.emplace_back(PSF_frac_calc(x, y, i - x, j - y), count[i][j]);
-                    }
-                }
-            }
-
-            float R = 0.05;
-
-            for(int iter = 0; iter < ITERATION_COUNT; iter++) {
-                float tmp_R = 0;
-                for(auto [s, c] : PSF_list) {
-                    tmp_R += c * (R * s) / ((R * s + bkg_rate) * TIME);
-                }
-                R = tmp_R;
-            }
-
-            Rval[x][y] = R;
-            
-            float res = 0;
-            for(auto [s, c] : PSF_list) {
-                res += c * log((R * s + bkg_rate) / bkg_rate);
-            }
-
-            ratio[x][y] = res - TIME * R;
-        }
+    for(auto& th : threads) {
+        th.join();
     }
 
     auto EndTime = std::chrono::high_resolution_clock::now();

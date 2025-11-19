@@ -4,3 +4,5 @@ logs/
 cfitsio/
 
 ratio_calculate
+
+*.txt

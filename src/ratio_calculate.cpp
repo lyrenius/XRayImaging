@@ -30,14 +30,6 @@ constexpr int PSF_SIZE = 15;
 constexpr float bkg_rate = 1e-5;
 constexpr int TIME = 1000;
 
-#define CHECK_STATUS(status)                         \
-  do {                                               \
-    if (status) {                                    \
-      fits_report_error(stderr, status);             \
-      std::exit(EXIT_FAILURE);                       \
-    }                                                \
-  } while (0)
-
 int count[LEN][LEN];
 int sum_count[LEN][LEN];
 float ratio[LEN][LEN];
@@ -144,8 +136,6 @@ void calc(int x, int y)
 
 void calc_sum()
 {
-    auto StartTime = std::chrono::high_resolution_clock::now();
-
     for(int i = 0; i < LEN; i++) {
         for(int j = 0; j < LEN; j++) {
             sum_count[i][j] = count[i][j];
@@ -154,12 +144,6 @@ void calc_sum()
             if(i > 0 && j > 0) sum_count[i][j] -= sum_count[i - 1][j - 1];
         }
     }
-    
-    auto EndTime = std::chrono::high_resolution_clock::now();
-
-    std::chrono::duration<double> Elapsed = EndTime - StartTime;
-
-    std::cerr << "Calc sum time: " << Elapsed.count() * 1000.0 << " ms" << std::endl;
 }
 
 void preworker(int id)
@@ -175,8 +159,6 @@ void preworker(int id)
 
 void prework()
 {
-    auto StartTime = std::chrono::high_resolution_clock::now();
-
     std::vector<std::thread> threads;
 
     for(int i = 0; i < NUM_THREADS; i++) {
@@ -187,18 +169,10 @@ void prework()
     for(auto& th : threads) {
         th.join();
     }
-
-    auto EndTime = std::chrono::high_resolution_clock::now();
-
-    std::chrono::duration<double> Elapsed = EndTime - StartTime;
-
-    std::cerr << "Prework time: " << Elapsed.count() * 1000.0 << " ms" << std::endl;
 }
 
 void work()
 {
-    auto StartTime = std::chrono::high_resolution_clock::now();
-
     for(int X = 0; X < LEN; X += STEP) {
         for(int Y = 0; Y < LEN; Y += STEP) {
             if(ratio[X][Y] >= LIMIT) {
@@ -231,18 +205,10 @@ void work()
             }
         }
     }
-
-    auto EndTime = std::chrono::high_resolution_clock::now();
-
-    std::chrono::duration<double> Elapsed = EndTime - StartTime;
-
-    std::cerr << "Work time: " << Elapsed.count() * 1000.0 << " ms" << std::endl;
 }
 
 void read_data()
 {
-    auto StartTime = std::chrono::high_resolution_clock::now();
-
     fitsfile *fptr = nullptr;
     int status = 0;
     int hdutype = 0;
@@ -254,62 +220,54 @@ void read_data()
 
     std::string mock_file = std::string(submit_dir) + "/data/mock_data.fits";
     fits_open_file(&fptr, mock_file.c_str(), READONLY, &status);
-    CHECK_STATUS(status);
+    
 
     // Python hdu[1] -> CFITSIO HDU
     fits_movabs_hdu(fptr, 2, &hdutype, &status);
-    CHECK_STATUS(status);
+    
 
     fits_get_num_rows(fptr, &nrows, &status);
-    CHECK_STATUS(status);
+    
 
     fits_get_colnum(fptr, CASEINSEN, const_cast<char *>("x"), &col_x, &status);
-    CHECK_STATUS(status);
+    
     fits_get_colnum(fptr, CASEINSEN, const_cast<char *>("y"), &col_y, &status);
-    CHECK_STATUS(status);
+    
 
     std::vector<int> x(nrows), y(nrows);
 
     fits_read_col(fptr, TINT, col_x, 1, 1, nrows, nullptr,
                     x.data(), &anynul, &status);
-    CHECK_STATUS(status);
+    
     fits_read_col(fptr, TINT, col_y, 1, 1, nrows, nullptr,
                     y.data(), &anynul, &status);
-    CHECK_STATUS(status);
+    
 
     fits_close_file(fptr, &status);
-    CHECK_STATUS(status);
+    
 
     for(int i = 0; i < nrows; i++) {
         count[x[i]][y[i]]++;
     }
-
-    auto EndTime = std::chrono::high_resolution_clock::now();
-
-    std::chrono::duration<double> Elapsed = EndTime - StartTime;
-
-    std::cerr << "Read time: " << Elapsed.count() * 1000.0 << " ms" << std::endl;
 }
 
 void write_result()
 {
-    auto StartTime = std::chrono::high_resolution_clock::now();
-
     fitsfile *fptr = nullptr;
     int status = 0;
 
     // "!" to overwrite existing file
     fits_create_file(&fptr, "!data/detection_info.fits", &status);
-    CHECK_STATUS(status);
+    
 
     // primary HDU
     fits_create_img(fptr, 8, 0, nullptr, &status);  // BITPIX=8
-    CHECK_STATUS(status);
+    
 
     fits_write_comment(fptr,
                         const_cast<char *>("This file storages the info of detected sources"),
                         &status);
-    CHECK_STATUS(status);
+    
 
     // binary table
     char *ttype[] = {
@@ -337,57 +295,31 @@ void write_result()
     fits_create_tbl(fptr, BINARY_TBL, nrows, 3,
                     ttype, tform, tunit,
                     const_cast<char *>("DETECTION_INFO"), &status);
-    CHECK_STATUS(status);
+    
 
     fits_write_col(fptr, TINT, 1, 1, 1, nrows,
                     source_x.data(), &status);
-    CHECK_STATUS(status);
+    
 
     fits_write_col(fptr, TINT, 2, 1, 1, nrows,
                     source_y.data(), &status);
-    CHECK_STATUS(status);
+    
 
     fits_write_col(fptr, TDOUBLE, 3, 1, 1, nrows,
                     source_R.data(), &status);
-    CHECK_STATUS(status);
+    
 
     fits_close_file(fptr, &status);
-    CHECK_STATUS(status);
+    
 
-    auto EndTime = std::chrono::high_resolution_clock::now();
-
-    std::chrono::duration<double> Elapsed = EndTime - StartTime;
-
-    std::cerr << "Write time: " << Elapsed.count() * 1000.0 << " ms" << std::endl;
-}
-
-void print_grid()
-{
-    std::ofstream fout("data/detected_ratio.txt");
-
-    for(int i = 0; i < LEN; i++) {
-        for(int j = 0; j < LEN; j++) {
-            fout << ratio[i][j] << " ";
-        }
-        fout << std::endl;
-    }
 }
 
 int main()
 {
-    auto StartTime = std::chrono::high_resolution_clock::now();
-
-    std::cerr << "Using " << NUM_THREADS << " threads." << std::endl;
     read_data();
     calc_sum();
     prework();
     work();
     write_result();
-    // print_grid();
-
-    auto EndTime = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double> Elapsed = EndTime - StartTime;
-    std::cerr << "Total time: " << Elapsed.count() * 1000.0 << " ms" << std::endl;
-
     return 0;
 }

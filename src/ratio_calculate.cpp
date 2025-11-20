@@ -223,34 +223,7 @@ void work()
                     if(ratio[x][y - 1] < ratio[x][y]) break;
                     y--;
                 }
-            }
-        }
-    }
-
-    auto EndTime = std::chrono::high_resolution_clock::now();
-
-    std::chrono::duration<double> Elapsed = EndTime - StartTime;
-
-    std::cerr << "Work time: " << Elapsed.count() * 1000.0 << " ms" << std::endl;
-}
-
-void detection()
-{
-    auto StartTime = std::chrono::high_resolution_clock::now();
-    
-    for(int x = 10; x < 500; x++) {
-        for(int y = 10; y < 500; y++) {
-            if(ratio[x][y] >= threshold) {
-                bool ok = 1;
-                for(int i = x - 10; i <= x + 10; i++) {
-                    for(int j = y - 10; j <= y + 10; j++) {
-                        if(ratio[i][j] > ratio[x][y]) {
-                            ok = 0;
-                            break;
-                        }
-                    }
-                }
-                if(ok) {
+                if(ratio[x][y] >= threshold) {
                     source_x.push_back(x);
                     source_y.push_back(y);
                     source_R.push_back(Rval[x][y]);
@@ -263,7 +236,7 @@ void detection()
 
     std::chrono::duration<double> Elapsed = EndTime - StartTime;
 
-    std::cerr << "Detection time: " << Elapsed.count() * 1000.0 << " ms" << std::endl;
+    std::cerr << "Work time: " << Elapsed.count() * 1000.0 << " ms" << std::endl;
 }
 
 void read_data()
@@ -407,7 +380,6 @@ int main()
     calc_sum();
     prework();
     work();
-    detection();
     write_result();
     // print_grid();
     return 0;

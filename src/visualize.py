@@ -42,9 +42,9 @@ plt.figure(figsize=(8, 6)) # Set the size of the plot
 # The data is treated as an image where the value of each element maps to a color.
 image = plt.imshow(data_array, 
                    cmap='Reds',  # 'viridis' is a common and perceptually uniform colormap
-                   vmax=8,      # Set maximum data value for color scaling
-                   aspect='auto',   # Adjusts the aspect ratio to fill the figure
-                   origin='upper') # Display the [0, 0] element at the top-left
+                   vmax=8.0,      # Set maximum data value for color scaling
+                   interpolation='nearest', # <-- Ensures blocky, distinct data points
+                   aspect='equal')         # <-- Ensures data points look square
 
 # Add a color bar to show the mapping between data values and colors
 plt.colorbar(image, label='Data Value')

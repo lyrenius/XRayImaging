@@ -19,6 +19,7 @@ using std::min;
 constexpr int STEP = 5;
 constexpr float LIMIT = 6.0;
 constexpr float threshold = 8.0;
+constexpr int SMALL_COUNT_LIMIT = 9;
 
 constexpr int ITERATION_COUNT = 10;
 
@@ -38,6 +39,7 @@ constexpr int TIME = 1000;
   } while (0)
 
 int count[LEN][LEN];
+int sum_count[LEN][LEN];
 float ratio[LEN][LEN];
 float Rval[LEN][LEN];
 std::vector<int> source_x;
@@ -69,6 +71,21 @@ inline float square_sum(float x,float y)
 
 void calc(int x, int y)
 {
+    int min_x = max(0, x - PSF_SIZE / 2);
+    int max_x = min(LEN - 1, x + PSF_SIZE / 2);
+    int min_y = max(0, y - PSF_SIZE / 2);
+    int max_y = min(LEN - 1, y + PSF_SIZE / 2);
+
+    if(sum_count[max_x][max_y]
+       - (min_x > 0 ? sum_count[min_x - 1][max_y] : 0)
+       - (min_y > 0 ? sum_count[max_x][min_y - 1] : 0)
+       + (min_x > 0 && min_y > 0 ? sum_count[min_x - 1][min_y - 1] : 0)
+       < SMALL_COUNT_LIMIT) {
+        ratio[x][y] = -1e9;
+        Rval[x][y] = 0;
+        return;
+    }
+
     constexpr float center_x = 256;
     constexpr float center_y = 256;
 
@@ -123,6 +140,26 @@ void calc(int x, int y)
     }
 
     ratio[x][y] = res - TIME * R;
+}
+
+void calc_sum()
+{
+    auto StartTime = std::chrono::high_resolution_clock::now();
+
+    for(int i = 0; i < LEN; i++) {
+        for(int j = 0; j < LEN; j++) {
+            sum_count[i][j] = count[i][j];
+            if(i > 0) sum_count[i][j] += sum_count[i - 1][j];
+            if(j > 0) sum_count[i][j] += sum_count[i][j - 1];
+            if(i > 0 && j > 0) sum_count[i][j] -= sum_count[i - 1][j - 1];
+        }
+    }
+    
+    auto EndTime = std::chrono::high_resolution_clock::now();
+
+    std::chrono::duration<double> Elapsed = EndTime - StartTime;
+
+    std::cerr << "Calc sum time: " << Elapsed.count() * 1000.0 << " ms" << std::endl;
 }
 
 void preworker(int id)
@@ -355,6 +392,7 @@ int main()
 {
     std::cerr << "Using " << NUM_THREADS << " threads." << std::endl;
     read_data();
+    calc_sum();
     prework();
     work();
     detection();

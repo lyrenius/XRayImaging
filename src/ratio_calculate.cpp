@@ -199,17 +199,29 @@ void work()
 {
     auto StartTime = std::chrono::high_resolution_clock::now();
 
-    for(int x = 0; x < LEN; x += STEP) {
-        for(int y = 0; y < LEN; y += STEP) {
-            if(ratio[x][y] >= LIMIT) {
-                for(int dx = -STEP + 1; dx < STEP; dx++) {
-                    for(int dy = -STEP + 1; dy < STEP; dy++) {
-                        int nx = x + dx;
-                        int ny = y + dy;
-                        if(nx >= 0 && nx < LEN && ny >= 0 && ny < LEN) {
-                            calc(nx, ny);
-                        }
-                    }
+    for(int X = 0; X < LEN; X += STEP) {
+        for(int Y = 0; Y < LEN; Y += STEP) {
+            if(ratio[X][Y] >= LIMIT) {
+                int x = X, y = Y;
+                while(x < LEN - 1) {
+                    calc(x + 1, y);
+                    if(ratio[x + 1][y] < ratio[x][y]) break;
+                    x++;
+                }
+                while(x > 0) {
+                    calc(x - 1, y);
+                    if(ratio[x - 1][y] < ratio[x][y]) break;
+                    x--;
+                }
+                while(y < LEN - 1) {
+                    calc(x, y + 1);
+                    if(ratio[x][y + 1] < ratio[x][y]) break;
+                    y++;
+                }
+                while(y > 0) {
+                    calc(x, y - 1);
+                    if(ratio[x][y - 1] < ratio[x][y]) break;
+                    y--;
                 }
             }
         }

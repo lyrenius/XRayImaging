@@ -375,6 +375,8 @@ void print_grid()
 
 int main()
 {
+    auto StartTime = std::chrono::high_resolution_clock::now();
+
     std::cerr << "Using " << NUM_THREADS << " threads." << std::endl;
     read_data();
     calc_sum();
@@ -382,5 +384,10 @@ int main()
     work();
     write_result();
     // print_grid();
+
+    auto EndTime = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> Elapsed = EndTime - StartTime;
+    std::cerr << "Total time: " << Elapsed.count() * 1000.0 << " ms" << std::endl;
+
     return 0;
 }

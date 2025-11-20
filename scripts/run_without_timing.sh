@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #SBATCH -J mystery
-#SBATCH -p cnmix
+#SBATCH -p cnall
 #SBATCH -N 1
 #SBATCH -o logs/stdout.%j
 #SBATCH -e logs/stderr.%j

@@ -7,13 +7,14 @@
 #include <cmath>
 #include <chrono>
 #include <thread>
+#include <pthread.h>
 
 using std::max;
 using std::min;
 
 constexpr int NUM_THREADS = 16;
 
-constexpr int STEP = 3;
+constexpr int STEP = 5;
 constexpr float LIMIT = 6.0;
 constexpr float threshold = 8.0;
 
@@ -40,6 +41,24 @@ float Rval[LEN][LEN];
 std::vector<int> source_x;
 std::vector<int> source_y;
 std::vector<double> source_R;
+
+// Function to pin the thread
+void set_cpu_affinity(std::thread& t, int cpu_id) {
+    // 1. Define the CPU set (the mask)
+    cpu_set_t cpuset;
+    CPU_ZERO(&cpuset);
+    CPU_SET(cpu_id, &cpuset); // Only allow running on cpu_id
+
+    // 2. Get the native handle (pthread_t)
+    pthread_t native_handle = t.native_handle();
+
+    // 3. Call the OS affinity function
+    pthread_setaffinity_np(
+        native_handle,
+        sizeof(cpu_set_t),
+        &cpuset
+    );
+}
 
 inline float square_sum(float x,float y)
 {
@@ -126,6 +145,7 @@ void prework()
 
     for(int i = 0; i < NUM_THREADS; i++) {
         threads.emplace_back(preworker, i);
+        set_cpu_affinity(threads.back(), i);
     }
 
     for(auto& th : threads) {
@@ -336,9 +356,9 @@ int main()
 {
     read_data();
     prework();
-    // work();
+    work();
     detection();
     write_result();
-    print_grid();
+    // print_grid();
     return 0;
 }

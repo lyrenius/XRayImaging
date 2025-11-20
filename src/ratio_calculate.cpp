@@ -9,10 +9,12 @@
 #include <thread>
 #include <pthread.h>
 
+#ifndef NUM_THREADS
+#define NUM_THREADS 16
+#endif
+
 using std::max;
 using std::min;
-
-constexpr int NUM_THREADS = 16;
 
 constexpr int STEP = 5;
 constexpr float LIMIT = 6.0;
@@ -354,6 +356,7 @@ void print_grid()
 
 int main()
 {
+    std::cerr << "Using " << NUM_THREADS << " threads." << std::endl;
     read_data();
     prework();
     work();

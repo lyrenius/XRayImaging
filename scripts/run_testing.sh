@@ -3,8 +3,8 @@
 #SBATCH -J mystery
 #SBATCH -p cnall
 #SBATCH -N 1
-#SBATCH -o logs/stdout.%j
-#SBATCH -e logs/stderr.%j
+#SBATCH -o logs/batch_testing/stdout.%j
+#SBATCH -e logs/batch_testing/stderr.%j
 #SBATCH --ntasks-per-node=56
 
 source ~/.bashrc

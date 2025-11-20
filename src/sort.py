@@ -62,8 +62,8 @@ def get_runtime_for_file(filepath: str) -> Tuple[float, str]:
         Returns (float('inf'), filepath) if an error occurs.
     """
     # Line indices (0-indexed) for the two required timestamps
-    START_LINE_INDEX = 1  # Line 2
-    END_LINE_INDEX = 4    # Line 5
+    START_LINE_INDEX = 2  # Line 2
+    END_LINE_INDEX = 5    # Line 5
     
     # The format string for the timestamp inside the file:
     TIMESTAMP_FORMAT = "%Y-%m-%d %H:%M:%S.%f"

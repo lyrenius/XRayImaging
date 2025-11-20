@@ -3,86 +3,80 @@ import glob
 from datetime import datetime
 from typing import List, Tuple
 
-def calculate_time_differences(file_list: List[str]) -> List[Tuple[str, float]]:
+def get_runtime_for_file(filepath: str) -> Tuple[float, str]:
     """
-    Reads the first timestamp from each file, calculates the millisecond
-    difference between consecutive files, and returns a list of (filename, difference).
+    Reads a file to extract timestamps from line 2 and line 5, 
+    calculates the difference (runtime) in milliseconds, and returns it.
     
-    The difference for the very first file is calculated against a zero baseline (0.0).
+    Returns:
+        A tuple of (runtime_ms, filepath)
+        Returns (float('inf'), filepath) if an error occurs.
     """
-    if not file_list:
-        return []
-
+    # Line indices (0-indexed) for the two required timestamps
+    START_LINE_INDEX = 2  # Line 2: [2025-11-20 17:10:08.554] Running...
+    END_LINE_INDEX = 5    # Line 5: [2025-11-20 17:10:08.607] Checking...
+    
     # The format string for the timestamp inside the file:
     TIMESTAMP_FORMAT = "%Y-%m-%d %H:%M:%S.%f"
     
-    # List to store (timestamp, filename)
-    timestamp_data = []
+    timestamps = {} # To store the datetime objects
 
-    print(f"--- Processing {len(file_list)} files ---")
+    try:
+        # Read all necessary lines at once
+        with open(filepath, 'r') as f:
+            lines = f.readlines()
 
-    for filename in file_list:
-        try:
-            with open(filename, 'r') as f:
-                # Read only the first line
-                first_line = f.readline().strip()
+        # 1. Check if the file has enough lines
+        if len(lines) < END_LINE_INDEX + 1:
+            print(f"Warning: File {filepath} is too short (needs at least {END_LINE_INDEX + 1} lines). Skipping.")
+            return (float('inf'), filepath)
+
+        # 2. Extract and parse the start and end timestamps
+        for index, key in [(START_LINE_INDEX, 'start'), (END_LINE_INDEX, 'end')]:
+            line = lines[index].strip()
             
-            # Extract the timestamp string
-            if first_line.startswith('['):
-                end_index = first_line.find(']')
+            if line.startswith('['):
+                end_index = line.find(']')
                 if end_index != -1:
-                    # e.g., "2025-11-20 17:10:08.554"
-                    timestamp_str = first_line[1:end_index] 
+                    timestamp_str = line[1:end_index] 
                 else:
-                    print(f"Warning: Could not find closing bracket in file {filename}. Skipping.")
-                    continue
+                    print(f"Error: Could not find closing bracket on line {index + 1} in {filepath}.")
+                    return (float('inf'), filepath)
             else:
-                print(f"Warning: First line in file {filename} does not start with '['. Skipping.")
-                continue
-
-            # Parse the timestamp
+                print(f"Error: Line {index + 1} does not start with '[' in {filepath}.")
+                return (float('inf'), filepath)
+            
             try:
-                dt_object = datetime.strptime(timestamp_str, TIMESTAMP_FORMAT)
-                timestamp_data.append((dt_object, filename))
+                timestamps[key] = datetime.strptime(timestamp_str, TIMESTAMP_FORMAT)
             except ValueError as e:
-                print(f"Error parsing date/time in file {filename} ('{timestamp_str}'): {e}. Skipping.")
-                continue
+                print(f"Error parsing date/time on line {index + 1} in {filepath}: {e}.")
+                return (float('inf'), filepath)
 
-        except FileNotFoundError:
-            print(f"Error: File not found: {filename}. Skipping.")
-        except Exception as e:
-            print(f"An unexpected error occurred while processing {filename}: {e}. Skipping.")
-
-
-    # Sort the files by their **actual** timestamp chronologically
-    timestamp_data.sort(key=lambda x: x[0])
-    
-    # List to store (filename, difference in ms)
-    differences_ms = []
-    
-    previous_dt = None
-
-    for i, (current_dt, filename) in enumerate(timestamp_data):
-        if i == 0:
-            # The first chronologically sorted file has a 0.0 ms delta
-            difference_ms = 0.0
-        else:
-            # Calculate the time difference (timedelta object)
-            time_delta = current_dt - previous_dt
-            
-            # Convert the timedelta to total milliseconds
-            difference_ms = time_delta.total_seconds() * 1000.0
-            
-        differences_ms.append((filename, difference_ms))
+        # 3. Calculate the Runtime
+        start_dt = timestamps['start']
+        end_dt = timestamps['end']
         
-        # Update the previous timestamp for the next iteration
-        previous_dt = current_dt
+        # Ensure the end time is after the start time
+        if end_dt < start_dt:
+             print(f"Warning: End time ({end_dt}) is before start time ({start_dt}) in {filepath}. Runtime will be negative.")
+        
+        time_delta = end_dt - start_dt
+        
+        # Convert the timedelta to total milliseconds
+        runtime_ms = time_delta.total_seconds() * 1000.0
+        
+        return (runtime_ms, filepath)
 
-    return differences_ms
+    except FileNotFoundError:
+        print(f"Error: File not found: {filepath}. Skipping.")
+        return (float('inf'), filepath)
+    except Exception as e:
+        print(f"An unexpected error occurred while processing {filepath}: {e}. Skipping.")
+        return (float('inf'), filepath)
 
 # --- Main Execution Block ---
 
-# 1. Define the directory path relative to the script's location
+# 1. Define the directory path and file pattern
 LOG_DIR = "../logs/batch_testing"
 FILE_PATTERN = "stdout.*"
 
@@ -96,17 +90,28 @@ if not input_files:
     print(f"\n❌ Error: No files matching '{FILE_PATTERN}' found in directory '{LOG_DIR}'.")
     print("Please ensure the directory exists and contains matching log files.")
 else:
-    # 3. Calculate the differences
-    results = calculate_time_differences(input_files)
+    print(f"\n--- Processing {len(input_files)} files in {LOG_DIR} ---")
+    
+    # 3. Calculate the runtime for each file
+    # results is a list of tuples: [(runtime_ms, filepath), ...]
+    all_runtimes = []
+    for f in input_files:
+        runtime_ms, filepath = get_runtime_for_file(f)
+        # Only include valid runtimes (not float('inf') for errors)
+        if runtime_ms != float('inf'):
+            all_runtimes.append((runtime_ms, filepath))
 
-    # 4. Sort the results based on the millisecond difference (the delta)
-    sorted_results = sorted(results, key=lambda x: x[1])
+    if not all_runtimes:
+        print("\n❌ No valid runtimes were calculated from the files.")
+    else:
+        # 4. Sort the results based on the millisecond runtime (the first element of the tuple)
+        # This sorts from shortest runtime to longest runtime (ascending).
+        sorted_results = sorted(all_runtimes, key=lambda x: x[0])
 
-    print("\n--- Results Sorted by Millisecond Difference (Delta between chronological files) ---")
-    print("Filename\t\tDifference (ms)")
-    print("---------------------------------------")
+        print("\n--- Results Sorted by Internal Runtime (Shortest to Longest) ---")
+        print("Filename\t\tRuntime (ms)")
+        print("---------------------------------------")
 
-    for filename, diff_ms in sorted_results:
-        # Use os.path.basename() to print just the filename, not the full path
-        # Use f-string formatting to align and limit decimal places
-        print(f"{os.path.basename(filename):<15}\t{diff_ms:>.3f}")
+        for runtime_ms, filename in sorted_results:
+            # Use os.path.basename() to print just the filename
+            print(f"{os.path.basename(filename):<15}\t{runtime_ms:>.3f}")

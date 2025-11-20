@@ -13,20 +13,19 @@ conda activate mystery
 
 if [[ -z "$SLURM_SUBMIT_DIR" ]]; then
   SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)"
-  SLURM_SUBMIT_DIR="$(dirname "$SCRIPT_DIR")"
+  export SLURM_SUBMIT_DIR="$(dirname "$SCRIPT_DIR")"
 fi
 
 CFITSIO_PATH=$SLURM_SUBMIT_DIR/cfitsio
 
-g++ -std=c++20 -O3 -march=native $SLURM_SUBMIT_DIR/src/trans.cpp \
+g++ -std=c++20 -O3 -march=native $SLURM_SUBMIT_DIR/src/ratio_calculate.cpp \
   -I $CFITSIO_PATH/include \
   -L $CFITSIO_PATH/lib \
   -Wl,-rpath,"$CFITSIO_PATH/lib" \
-  -lcfitsio -lm \
+  -lcfitsio \
   -lpthread \
-  -o $SLURM_SUBMIT_DIR/bin/trans
-
-g++ -std=c++20 -O3 -march=native -o $SLURM_SUBMIT_DIR/bin/ratio_calculate $SLURM_SUBMIT_DIR/src/ratio_calculate.cpp
+  -DNUM_THREADS=8 \
+  -o $SLURM_SUBMIT_DIR/bin/ratio_calculate
 
 echo "X Ray Image task:"
 
@@ -34,9 +33,7 @@ echo "================================================================"
 echo "[$(date +"%Y-%m-%d %H:%M:%S.%3N")] Running..."
 echo "================================================================"
 
-$SLURM_SUBMIT_DIR/bin/trans read
 $SLURM_SUBMIT_DIR/bin/ratio_calculate
-$SLURM_SUBMIT_DIR/bin/trans write
 
 echo "================================================================"
 echo "[$(date +"%Y-%m-%d %H:%M:%S.%3N")] Checking..."

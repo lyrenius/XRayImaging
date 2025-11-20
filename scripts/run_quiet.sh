@@ -23,6 +23,7 @@ g++ -std=c++20 -O3 -march=native $SLURM_SUBMIT_DIR/src/ratio_calculate.cpp \
   -L $CFITSIO_PATH/lib \
   -Wl,-rpath,"$CFITSIO_PATH/lib" \
   -lcfitsio \
+  -lpthread \
   -DNUM_THREADS=8 \
   -o $SLURM_SUBMIT_DIR/bin/ratio_calculate
 

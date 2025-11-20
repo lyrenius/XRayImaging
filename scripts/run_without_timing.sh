@@ -23,6 +23,7 @@ g++ -std=c++20 -O3 -march=native $SLURM_SUBMIT_DIR/src/trans.cpp \
   -L $CFITSIO_PATH/lib \
   -Wl,-rpath,"$CFITSIO_PATH/lib" \
   -lcfitsio -lm \
+  -lpthread \
   -o $SLURM_SUBMIT_DIR/bin/trans
 
 g++ -std=c++20 -O3 -march=native -o $SLURM_SUBMIT_DIR/bin/ratio_calculate $SLURM_SUBMIT_DIR/src/ratio_calculate.cpp

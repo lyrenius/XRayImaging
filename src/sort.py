@@ -1,33 +1,28 @@
 import os
 import glob
 from datetime import datetime
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 
 # Define the directory path and file pattern constants
 LOG_DIR = "../logs/batch_testing"
 STDOUT_PATTERN = "stdout.*"
 STDERR_PATTERN = "stderr."
 EXCLUSION_TEXT = "Text file busy"
+# The maximum length to print for the stderr first line
+MAX_STDERR_PREVIEW_LEN = 60 
 
 
-def is_file_excluded(stdout_filepath: str) -> bool:
+def get_stderr_preview(stdout_filepath: str) -> Optional[str]:
     """
-    Checks if the corresponding stderr file contains the exclusion text.
+    Finds the corresponding stderr file and returns its first line.
     
-    Args:
-        stdout_filepath: The full path to the stdout log file.
-
     Returns:
-        True if the corresponding stderr file exists and contains the 
-        exclusion text, False otherwise.
+        The first line of the stderr file (or None if not found/error).
     """
     # 1. Determine the corresponding stderr filename
     stdout_filename = os.path.basename(stdout_filepath)
-    # This assumes a naming convention like stdout.N and stderr.N
-    # We strip "stdout." and replace it with "stderr."
     if not stdout_filename.startswith("stdout."):
-        # If the filename doesn't follow the expected pattern, we can't reliably find stderr
-        return False
+        return None
         
     stderr_filename = stdout_filename.replace("stdout.", STDERR_PATTERN)
     
@@ -35,7 +30,35 @@ def is_file_excluded(stdout_filepath: str) -> bool:
     log_directory = os.path.dirname(stdout_filepath)
     stderr_filepath = os.path.join(log_directory, stderr_filename)
 
-    # 3. Check if the stderr file exists and contains the text
+    # 3. Read the first line of the stderr file
+    if os.path.exists(stderr_filepath):
+        try:
+            with open(stderr_filepath, 'r', encoding='utf-8', errors='ignore') as f:
+                first_line = f.readline().strip()
+                # Truncate for clean output
+                if len(first_line) > MAX_STDERR_PREVIEW_LEN:
+                    return first_line[:MAX_STDERR_PREVIEW_LEN - 3] + "..."
+                return first_line
+        except Exception as e:
+            # Handle potential reading errors but return None
+            # print(f"Warning: Error reading {stderr_filename}: {e}")
+            return f"[ERROR reading file: {e}]"
+            
+    return "[No corresponding stderr file]"
+
+
+def is_file_excluded(stdout_filepath: str) -> bool:
+    """
+    Checks if the corresponding stderr file contains the exclusion text.
+    """
+    stdout_filename = os.path.basename(stdout_filepath)
+    if not stdout_filename.startswith("stdout."):
+        return False
+        
+    stderr_filename = stdout_filename.replace("stdout.", STDERR_PATTERN)
+    log_directory = os.path.dirname(stdout_filepath)
+    stderr_filepath = os.path.join(log_directory, stderr_filename)
+
     if os.path.exists(stderr_filepath):
         try:
             with open(stderr_filepath, 'r', encoding='utf-8', errors='ignore') as f:
@@ -43,11 +66,9 @@ def is_file_excluded(stdout_filepath: str) -> bool:
                 if EXCLUSION_TEXT in content:
                     print(f"-> EXCLUDING {stdout_filename}: Found '{EXCLUSION_TEXT}' in {stderr_filename}.")
                     return True
-        except FileNotFoundError:
-            # Should not happen due to os.path.exists check, but safe to include
+        except Exception:
+            # Assume not excluded if there's a read error
             pass
-        except Exception as e:
-            print(f"Warning: Error reading {stderr_filename} for exclusion check: {e}")
             
     return False
 
@@ -61,103 +82,85 @@ def get_runtime_for_file(filepath: str) -> Tuple[float, str]:
         A tuple of (runtime_ms, filepath)
         Returns (float('inf'), filepath) if an error occurs.
     """
-    # Line indices (0-indexed) for the two required timestamps
     START_LINE_INDEX = 2  # Line 2
     END_LINE_INDEX = 5    # Line 5
-    
-    # The format string for the timestamp inside the file:
     TIMESTAMP_FORMAT = "%Y-%m-%d %H:%M:%S.%f"
-    
-    timestamps = {} # To store the datetime objects
+    timestamps = {} 
 
     try:
-        # Read all necessary lines at once
         with open(filepath, 'r') as f:
             lines = f.readlines()
 
-        # 1. Check if the file has enough lines
         if len(lines) < END_LINE_INDEX + 1:
-            print(f"Warning: File {os.path.basename(filepath)} is too short (needs at least {END_LINE_INDEX + 1} lines). Skipping.")
+            print(f"Warning: File {os.path.basename(filepath)} is too short. Skipping.")
             return (float('inf'), filepath)
 
-        # 2. Extract and parse the start and end timestamps
+        # Extract and parse start/end timestamps
         for index, key in [(START_LINE_INDEX, 'start'), (END_LINE_INDEX, 'end')]:
             line = lines[index].strip()
-            
             if line.startswith('['):
                 end_index = line.find(']')
-                if end_index != -1:
-                    timestamp_str = line[1:end_index] 
-                else:
-                    print(f"Error: Could not find closing bracket on line {index + 1} in {os.path.basename(filepath)}.")
-                    return (float('inf'), filepath)
+                timestamp_str = line[1:end_index] 
             else:
-                print(f"Error: Line {index + 1} does not start with '[' in {os.path.basename(filepath)}.")
+                print(f"Error: Line {index + 1} format incorrect in {os.path.basename(filepath)}. Skipping.")
                 return (float('inf'), filepath)
             
-            try:
-                dt_object = datetime.strptime(timestamp_str, TIMESTAMP_FORMAT)
-                timestamps[key] = dt_object
-            except ValueError as e:
-                print(f"Error parsing date/time on line {index + 1} in {os.path.basename(filepath)}: {e}.")
-                return (float('inf'), filepath)
+            timestamps[key] = datetime.strptime(timestamp_str, TIMESTAMP_FORMAT)
 
-        # 3. Calculate the Runtime
-        start_dt = timestamps['start']
-        end_dt = timestamps['end']
-        
-        # Calculate the timedelta and convert to total milliseconds
-        time_delta = end_dt - start_dt
+        # Calculate the Runtime
+        time_delta = timestamps['end'] - timestamps['start']
         runtime_ms = time_delta.total_seconds() * 1000.0
         
         return (runtime_ms, filepath)
 
-    except FileNotFoundError:
-        print(f"Error: File not found: {os.path.basename(filepath)}. Skipping.")
-        return (float('inf'), filepath)
     except Exception as e:
-        print(f"An unexpected error occurred while processing {os.path.basename(filepath)}: {e}. Skipping.")
+        print(f"An error occurred while processing {os.path.basename(filepath)}: {e}. Skipping.")
         return (float('inf'), filepath)
 
 # --- Main Execution Block ---
 
-# Construct the full path pattern to search for
 search_path = os.path.join(LOG_DIR, STDOUT_PATTERN)
-
-# 1. Use glob.glob to find all matching stdout files
 all_stdout_files = glob.glob(search_path)
 
 if not all_stdout_files:
     print(f"\n❌ Error: No files matching '{STDOUT_PATTERN}' found in directory '{LOG_DIR}'.")
-    print("Please ensure the directory exists and contains matching log files.")
 else:
     print(f"\n--- Processing {len(all_stdout_files)} potential files in {LOG_DIR} ---")
     
-    # 2. Calculate the runtime for each valid file
-    all_runtimes = []
+    # List to store (runtime_ms, filepath, stderr_preview)
+    all_results = []
     
     for f in all_stdout_files:
-        # Apply the new exclusion condition
+        # 1. Apply the exclusion condition
         if is_file_excluded(f):
             continue
             
+        # 2. Calculate runtime
         runtime_ms, filepath = get_runtime_for_file(f)
         
-        # Only include valid runtimes (not float('inf') for errors)
+        # 3. Retrieve stderr preview
+        stderr_preview = get_stderr_preview(filepath)
+        
+        # Only include valid runtimes
         if runtime_ms != float('inf'):
-            all_runtimes.append((runtime_ms, filepath))
+            all_results.append((runtime_ms, filepath, stderr_preview))
 
-    if not all_runtimes:
+    if not all_results:
         print("\n❌ No valid runtimes were calculated after filtering and error checking.")
     else:
-        # 3. Sort the results based on the millisecond runtime
-        sorted_results = sorted(all_runtimes, key=lambda x: x[0])
+        # 4. Sort the results based on the millisecond runtime (shortest to longest)
+        sorted_results = sorted(all_results, key=lambda x: x[0])
 
         print("\n--- Results Sorted by Internal Runtime (Shortest to Longest) ---")
         print(f"Total valid runs: {len(sorted_results)}")
-        print("Filename\t\tRuntime (ms)")
-        print("---------------------------------------")
+        print("-" * 100)
+        # Use simple print statements for columns due to variable length of stderr text
+        print(f"{'Filename':<15} | {'Runtime (ms)':>15} | First Stderr Line (Max {MAX_STDERR_PREVIEW_LEN} chars)")
+        print("-" * 100)
 
-        for runtime_ms, filename in sorted_results:
+        for runtime_ms, filename, stderr_preview in sorted_results:
             # Use os.path.basename() to print just the filename
-            print(f"{os.path.basename(filename):<15}\t{runtime_ms:>.3f}")
+            basename = os.path.basename(filename)
+            print(f"{basename:<15} | {runtime_ms:>15.3f} | {stderr_preview}")
+        
+        print("-" * 100)

@@ -13,9 +13,14 @@ using std::min;
 
 constexpr int NUM_THREADS = 16;
 
+constexpr int STEP = 4;
+constexpr float LIMIT = 6.0;
+
+constexpr int ITERATION_COUNT = 10;
+
+
 constexpr int LEN = 512;
 constexpr int PSF_SIZE = 15;
-constexpr int ITERATION_COUNT = 10;
 
 constexpr float bkg_rate = 1e-5;
 constexpr int TIME = 1000;
@@ -101,29 +106,56 @@ void calc(int x, int y)
     ratio[x][y] = res - TIME * R;
 }
 
-void worker(int id)
+void preworker(int id)
 {
-    for(int x = 0; x < LEN; x++) {
-        for(int y = 0; y < LEN; y++) {
+    for(int x = 0; x < LEN / STEP; x++) {
+        for(int y = 0; y < LEN / STEP; y++) {
             if((x * LEN + y) % NUM_THREADS == id) {
-                calc(x, y);
+                calc(x * STEP, y * STEP);
             }
         }
     }
 }
 
-void work()
+void prework()
 {
     auto StartTime = std::chrono::high_resolution_clock::now();
 
     std::vector<std::thread> threads;
 
     for(int i = 0; i < NUM_THREADS; i++) {
-        threads.emplace_back(worker, i);
+        threads.emplace_back(preworker, i);
     }
 
     for(auto& th : threads) {
         th.join();
+    }
+
+    auto EndTime = std::chrono::high_resolution_clock::now();
+
+    std::chrono::duration<double> Elapsed = EndTime - StartTime;
+
+    std::cerr << "Detection time: " << Elapsed.count() * 1000.0 << " ms" << std::endl;
+}
+
+void work()
+{
+    auto StartTime = std::chrono::high_resolution_clock::now();
+
+    for(int x = 0; x < LEN; x += STEP) {
+        for(int y = 0; y < LEN; y += STEP) {
+            if(ratio[x][y] >= LIMIT) {
+                for(int dx = -STEP + 1; dx < STEP; dx++) {
+                    for(int dy = -STEP + 1; dy < STEP; dy++) {
+                        int nx = x + dx;
+                        int ny = y + dy;
+                        if(nx >= 0 && nx < LEN && ny >= 0 && ny < LEN) {
+                            calc(nx, ny);
+                        }
+                    }
+                }
+            }
+        }
     }
 
     auto EndTime = std::chrono::high_resolution_clock::now();
@@ -304,9 +336,10 @@ void print_grid()
 int main()
 {
     read_data();
+    prework();
     work();
     detection();
     write_result();
-    print_grid();
+    // print_grid();
     return 0;
 }

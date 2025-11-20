@@ -64,10 +64,10 @@ void set_cpu_affinity(std::thread& t, int cpu_id) {
 
 inline float square_sum(float x,float y)
 {
-    return x*x + y*y;
+    return x * x + y * y;
 }
 
-float PSF_frac_calc(float x,float y,float delta_x, float delta_y)
+void calc(int x, int y)
 {
     constexpr float center_x = 256;
     constexpr float center_y = 256;
@@ -88,14 +88,6 @@ float PSF_frac_calc(float x,float y,float delta_x, float delta_y)
 
     float normalization_factor = 1 / (2 * M_PI * sigma_major * sigma_minor);
 
-    float exponent = square_sum( (delta_x * cos_angle + delta_y * sin_angle) / sigma_major,
-                            (delta_x * sin_angle - delta_y * cos_angle) / sigma_minor ) / 2;
-
-    return normalization_factor * exp(-exponent);
-}
-
-void calc(int x, int y)
-{
     std::vector<std::pair<float,int>> PSF_list;
 
     PSF_list.clear();
@@ -103,7 +95,12 @@ void calc(int x, int y)
     for(int i = max(0, x - PSF_SIZE / 2); i < min(LEN, x + PSF_SIZE / 2 + 1); i++) {
         for(int j = max(0, y - PSF_SIZE / 2); j < min(LEN, y + PSF_SIZE / 2 + 1); j++) {
             if(count[i][j]) {
-                PSF_list.emplace_back(PSF_frac_calc(x, y, i - x, j - y), count[i][j]);
+                int delta_x = i - x;
+                int delta_y = j - y;
+                float exponent = square_sum( (delta_x * cos_angle + delta_y * sin_angle) / sigma_major,
+                                               (delta_x * sin_angle - delta_y * cos_angle) / sigma_minor ) / 2;
+                float psf_value = normalization_factor * exp(-exponent);
+                PSF_list.emplace_back(psf_value, count[i][j]);
             }
         }
     }

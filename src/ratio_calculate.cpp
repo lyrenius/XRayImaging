@@ -13,8 +13,9 @@ using std::min;
 
 constexpr int NUM_THREADS = 16;
 
-constexpr int STEP = 4;
+constexpr int STEP = 3;
 constexpr float LIMIT = 6.0;
+constexpr float threshold = 8.0;
 
 constexpr int ITERATION_COUNT = 10;
 
@@ -135,7 +136,7 @@ void prework()
 
     std::chrono::duration<double> Elapsed = EndTime - StartTime;
 
-    std::cerr << "Detection time: " << Elapsed.count() * 1000.0 << " ms" << std::endl;
+    std::cerr << "Prework time: " << Elapsed.count() * 1000.0 << " ms" << std::endl;
 }
 
 void work()
@@ -162,15 +163,13 @@ void work()
 
     std::chrono::duration<double> Elapsed = EndTime - StartTime;
 
-    std::cerr << "Detection time: " << Elapsed.count() * 1000.0 << " ms" << std::endl;
+    std::cerr << "Work time: " << Elapsed.count() * 1000.0 << " ms" << std::endl;
 }
 
 void detection()
 {
     auto StartTime = std::chrono::high_resolution_clock::now();
-
-    constexpr float threshold = 8.0;
-
+    
     for(int x = 10; x < 500; x++) {
         for(int y = 10; y < 500; y++) {
             if(ratio[x][y] >= threshold) {
@@ -248,7 +247,7 @@ void read_data()
 
     std::chrono::duration<double> Elapsed = EndTime - StartTime;
 
-    std::cerr << "Detection time: " << Elapsed.count() * 1000.0 << " ms" << std::endl;
+    std::cerr << "Read time: " << Elapsed.count() * 1000.0 << " ms" << std::endl;
 }
 
 void write_result()
@@ -318,7 +317,7 @@ void write_result()
 
     std::chrono::duration<double> Elapsed = EndTime - StartTime;
 
-    std::cerr << "Detection time: " << Elapsed.count() * 1000.0 << " ms" << std::endl;
+    std::cerr << "Write time: " << Elapsed.count() * 1000.0 << " ms" << std::endl;
 }
 
 void print_grid()
@@ -337,9 +336,9 @@ int main()
 {
     read_data();
     prework();
-    work();
+    // work();
     detection();
     write_result();
-    // print_grid();
+    print_grid();
     return 0;
 }

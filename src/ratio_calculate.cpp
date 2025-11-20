@@ -289,11 +289,24 @@ void write_result()
     std::cerr << "Detection time: " << Elapsed.count() * 1000.0 << " ms" << std::endl;
 }
 
+void print_grid()
+{
+    std::ofstream fout("data/detected_ratio.txt");
+
+    for(int i = 0; i < LEN; i++) {
+        for(int j = 0; j < LEN; j++) {
+            fout << ratio[i][j] << " ";
+        }
+        fout << std::endl;
+    }
+}
+
 int main()
 {
     read_data();
     work();
     detection();
     write_result();
+    print_grid();
     return 0;
 }

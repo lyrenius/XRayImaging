@@ -95,9 +95,12 @@ float PSF_frac_calc(float x,float y,float delta_x, float delta_y)
 }
 
 void calc(int x, int y)
+void calc(int x, int y)
 {
     std::vector<std::pair<float,int>> PSF_list;
+    std::vector<std::pair<float,int>> PSF_list;
 
+    PSF_list.clear();
     PSF_list.clear();
 
     for(int i = max(0, x - PSF_SIZE / 2); i < min(LEN, x + PSF_SIZE / 2 + 1); i++) {
@@ -107,7 +110,15 @@ void calc(int x, int y)
             }
         }
     }
+    for(int i = max(0, x - PSF_SIZE / 2); i < min(LEN, x + PSF_SIZE / 2 + 1); i++) {
+        for(int j = max(0, y - PSF_SIZE / 2); j < min(LEN, y + PSF_SIZE / 2 + 1); j++) {
+            if(count[i][j]) {
+                PSF_list.emplace_back(PSF_frac_calc(x, y, i - x, j - y), count[i][j]);
+            }
+        }
+    }
 
+    float R = 0.05;
     float R = 0.05;
 
     for(int iter = 0; iter < ITERATION_COUNT; iter++) {
@@ -117,7 +128,20 @@ void calc(int x, int y)
         }
         R = tmp_R;
     }
+    for(int iter = 0; iter < ITERATION_COUNT; iter++) {
+        float tmp_R = 0;
+        for(auto [s, c] : PSF_list) {
+            tmp_R += c * (R * s) / ((R * s + bkg_rate) * TIME);
+        }
+        R = tmp_R;
+    }
 
+    Rval[x][y] = R;
+    
+    float res = 0;
+    for(auto [s, c] : PSF_list) {
+        res += c * log((R * s + bkg_rate) / bkg_rate);
+    }
     Rval[x][y] = R;
     
     float res = 0;
@@ -359,9 +383,11 @@ int main()
     std::cerr << "Using " << NUM_THREADS << " threads." << std::endl;
     read_data();
     prework();
+    prework();
     work();
     detection();
     write_result();
+    // print_grid();
     // print_grid();
     return 0;
 }

@@ -63,75 +63,89 @@ inline float square_sum(float x,float y)
 
 void calc(int x, int y)
 {
-    int min_x = max(0, x - PSF_SIZE / 2);
-    int max_x = min(LEN - 1, x + PSF_SIZE / 2);
-    int min_y = max(0, y - PSF_SIZE / 2);
-    int max_y = min(LEN - 1, y + PSF_SIZE / 2);
+  int min_x = max(0, x - PSF_SIZE / 2);
+  int max_x = min(LEN - 1, x + PSF_SIZE / 2);
+  int min_y = max(0, y - PSF_SIZE / 2);
+  int max_y = min(LEN - 1, y + PSF_SIZE / 2);
 
-    if(sum_count[max_x][max_y]
-       - (min_x > 0 ? sum_count[min_x - 1][max_y] : 0)
-       - (min_y > 0 ? sum_count[max_x][min_y - 1] : 0)
-       + (min_x > 0 && min_y > 0 ? sum_count[min_x - 1][min_y - 1] : 0)
-       < SMALL_COUNT_LIMIT) {
-        ratio[x][y] = -1e9;
-        Rval[x][y] = 0;
-        return;
+  if (sum_count[max_x][max_y]
+      - (min_x > 0 ? sum_count[min_x - 1][max_y] : 0)
+      - (min_y > 0 ? sum_count[max_x][min_y - 1] : 0)
+      + (min_x > 0 && min_y > 0 ? sum_count[min_x - 1][min_y - 1] : 0)
+      < SMALL_COUNT_LIMIT) {
+    ratio[x][y] = -1e9;
+    Rval[x][y] = 0;
+    return;
+  }
+
+  constexpr float center_x = 256;
+  constexpr float center_y = 256;
+  constexpr float inv_max_distance = 1.0f / max_distance;
+  constexpr float max_distance = 362.039;
+
+  float dx = center_x - x - 0.5;
+  float dy = center_y - y - 0.5;
+  float distance = std::sqrt(square_sum(dx, dy));
+
+  float distance_scale = distance * inv_max_distance;
+  float eccentricity = 0.9 * distance_scale;
+
+  float sigma_minor = 0.5f + distance_scale * 2.5f;
+  float denom = 1.0f - eccentricity * eccentricity;
+  float sigma_major = sigma_minor / std::sqrt(denom);
+
+  float angle = std::atan2(dy, dx);
+  float cos_angle = std::cos(angle);
+  float sin_angle = std::sin(angle);
+
+  float normalization_factor = 1.0f / (2.0f * static_cast<float>(M_PI) * sigma_major * sigma_minor);
+
+  // ---- fixed-size arrays instead of vector ----
+  float psf_s[PSF_SIZE * PSF_SIZE];   // PSF value
+  int   psf_c[PSF_SIZE * PSF_SIZE];   // counts
+  int   psf_len = 0;
+
+  for (int i = min_x; i <= max_x; ++i) {
+    for (int j = min_y; j <= max_y; ++j) {
+      int c = count[i][j];
+      if (c) {
+        float delta_x = static_cast<float>(i - x);
+        float delta_y = static_cast<float>(j - y);
+        float major_coord = (delta_x * cos_angle + delta_y * sin_angle) / sigma_major;
+        float minor_coord = (delta_x * sin_angle - delta_y * cos_angle) / sigma_minor;
+        float exponent = (square_sum(major_coord, minor_coord)) * 0.5f;
+        float psf_value = normalization_factor * std::exp(-exponent);
+
+        psf_s[psf_len] = psf_value;
+        psf_c[psf_len] = c;
+        ++psf_len;
+      }
     }
+  }
 
-    constexpr float center_x = 256;
-    constexpr float center_y = 256;
+  float R = 0.05f;
 
-    float dx = center_x - x - 0.5;
-    float dy = center_y - y - 0.5;
-    float distance = sqrt(square_sum(dx,dy));
-    
-    constexpr float max_distance = 362.039; //256*sqrt(2)
-    float eccentricity = 0.9 * (distance / max_distance);
-
-    float sigma_minor = 0.5 + (distance / max_distance) * 2.5;
-    float sigma_major = sigma_minor / sqrt(1 - eccentricity * eccentricity);
-
-    float angle = atan2(dy, dx);
-    float cos_angle = cos(angle);
-    float sin_angle = sin(angle);
-
-    float normalization_factor = 1 / (2 * M_PI * sigma_major * sigma_minor);
-
-    std::vector<std::pair<float,int>> PSF_list;
-
-    PSF_list.clear();
-
-    for(int i = max(0, x - PSF_SIZE / 2); i < min(LEN, x + PSF_SIZE / 2 + 1); i++) {
-        for(int j = max(0, y - PSF_SIZE / 2); j < min(LEN, y + PSF_SIZE / 2 + 1); j++) {
-            if(count[i][j]) {
-                int delta_x = i - x;
-                int delta_y = j - y;
-                float exponent = square_sum( (delta_x * cos_angle + delta_y * sin_angle) / sigma_major,
-                                               (delta_x * sin_angle - delta_y * cos_angle) / sigma_minor ) / 2;
-                float psf_value = normalization_factor * exp(-exponent);
-                PSF_list.emplace_back(psf_value, count[i][j]);
-            }
-        }
+  for (int iter = 0; iter < ITERATION_COUNT; ++iter) {
+    float tmp_R = 0.0f;
+    for (int k = 0; k < psf_len; ++k) {
+      float s = psf_s[k];
+      float num = R * s;
+      float denom_rs = (num + bkg_rate) * TIME;
+      tmp_R += psf_c[k] * num / denom_rs;
     }
+    R = tmp_R;
+  }
 
-    float R = 0.05;
+  Rval[x][y] = R;
 
-    for(int iter = 0; iter < ITERATION_COUNT; iter++) {
-        float tmp_R = 0;
-        for(auto [s, c] : PSF_list) {
-            tmp_R += c * (R * s) / ((R * s + bkg_rate) * TIME);
-        }
-        R = tmp_R;
-    }
+  float res = 0;
+  for (int k = 0; k < psf_len; ++k) {
+    float s = psf_s[k];
+    float val = (R * s + bkg_rate) / bkg_rate;
+    res += psf_c[k] * std::log(val);
+  }
 
-    Rval[x][y] = R;
-    
-    float res = 0;
-    for(auto [s, c] : PSF_list) {
-        res += c * log((R * s + bkg_rate) / bkg_rate);
-    }
-
-    ratio[x][y] = res - TIME * R;
+  ratio[x][y] = res - TIME * R;
 }
 
 void calc_sum()

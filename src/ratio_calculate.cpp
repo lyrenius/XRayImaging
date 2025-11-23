@@ -187,40 +187,85 @@ void prework()
     }
 }
 
+struct LocalResult {
+    std::vector<int> xs;
+    std::vector<int> ys;
+    std::vector<double> Rs;
+};
+
 void work()
 {
-    for(int X = 0; X < LEN; X += STEP) {
-        for(int Y = 0; Y < LEN; Y += STEP) {
-            if(ratio[X][Y] >= LIMIT) {
-                int x = X, y = Y;
-                while(x < LEN - 1) {
-                    calc(x + 1, y);
-                    if(ratio[x + 1][y] < ratio[x][y]) break;
-                    x++;
-                }
-                while(x > 0) {
-                    calc(x - 1, y);
-                    if(ratio[x - 1][y] < ratio[x][y]) break;
-                    x--;
-                }
-                while(y < LEN - 1) {
-                    calc(x, y + 1);
-                    if(ratio[x][y + 1] < ratio[x][y]) break;
-                    y++;
-                }
-                while(y > 0) {
-                    calc(x, y - 1);
-                    if(ratio[x][y - 1] < ratio[x][y]) break;
-                    y--;
-                }
-                if(ratio[x][y] >= threshold) {
-                    source_x.push_back(x);
-                    source_y.push_back(y);
-                    source_R.push_back(Rval[x][y]);
-                }
+  const int GX = LEN / STEP;
+  const int GY = LEN / STEP;
+  const int total = GX * GY;
+
+  static std::thread threads[NUM_THREADS];
+  static LocalResult locals[NUM_THREADS];
+
+  for (int tid = 0; tid < NUM_THREADS; ++tid) {
+    threads[tid] = std::thread([&]() {
+        LocalResult &lr = locals[tid];
+
+        for (int idx = tid; idx < total; idx += NUM_THREADS) {
+            int grid_x = idx / GY;
+            int grid_y = idx % GY;
+
+            int X = grid_x * STEP;
+            int Y = grid_y * STEP;
+
+            // skip if coarse cell is not promising
+            if (ratio[X][Y] < LIMIT) {
+                continue;
+            }
+
+            int x = X;
+            int y = Y;
+
+            // move to local maximum along four directions
+            while (x < LEN - 1) {
+                calc(x + 1, y);
+                if (ratio[x + 1][y] < ratio[x][y]) break;
+                ++x;
+            }
+            while (x > 0) {
+                calc(x - 1, y);
+                if (ratio[x - 1][y] < ratio[x][y]) break;
+                --x;
+            }
+            while (y < LEN - 1) {
+                calc(x, y + 1);
+                if (ratio[x][y + 1] < ratio[x][y]) break;
+                ++y;
+            }
+            while (y > 0) {
+                calc(x, y - 1);
+                if (ratio[x][y - 1] < ratio[x][y]) break;
+                --y;
+            }
+
+            if (ratio[x][y] >= threshold) {
+                lr.xs.push_back(x);
+                lr.ys.push_back(y);
+                lr.Rs.push_back(Rval[x][y]);
             }
         }
-    }
+    });
+
+    // optional: pin this worker thread to tid-th CPU
+    set_cpu_affinity(threads[NUM_THREADS - 1], tid);
+  }
+
+  for (auto &th : threads) {
+    th.join();
+  }
+
+  // merge local results into global vectors
+  for (int tid = 0; tid < NUM_THREADS; ++tid) {
+    auto &lr = locals[tid];
+    source_x.insert(source_x.end(), lr.xs.begin(), lr.xs.end());
+    source_y.insert(source_y.end(), lr.ys.begin(), lr.ys.end());
+    source_R.insert(source_R.end(), lr.Rs.begin(), lr.Rs.end());
+  }
 }
 
 void read_data()

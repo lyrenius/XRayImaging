@@ -24,6 +24,7 @@ g++ -std=c++20 -O3 -march=native $SLURM_SUBMIT_DIR/src/ratio_calculate.cpp \
   -Wl,-rpath,"$CFITSIO_PATH/lib" \
   -lcfitsio \
   -lpthread \
+  -ffast-math -funroll-loops \
   -DNUM_THREADS=${NUM_THREADS:-1} \
   -o $SLURM_SUBMIT_DIR/bin/ratio_calculate
 

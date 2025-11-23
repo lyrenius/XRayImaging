@@ -101,8 +101,8 @@ void calc(int x, int y)
   float normalization_factor = 1.0f / (2.0f * static_cast<float>(M_PI) * sigma_major * sigma_minor);
 
   // ---- fixed-size arrays instead of vector ----
-  static float psf_s[PSF_SIZE * PSF_SIZE];   // PSF value
-  static int   psf_c[PSF_SIZE * PSF_SIZE];   // counts
+  float psf_s[PSF_SIZE * PSF_SIZE];   // PSF value
+  int   psf_c[PSF_SIZE * PSF_SIZE];   // counts
   int   psf_len = 0;
 
   for (int i = min_x; i <= max_x; ++i) {
@@ -200,10 +200,10 @@ void work()
   const int total = GX * GY;
 
   static std::thread threads[NUM_THREADS];
-  static LocalResult locals[NUM_THREADS];
+  LocalResult locals[NUM_THREADS];
 
   for (int tid = 0; tid < NUM_THREADS; ++tid) {
-    threads[tid] = std::thread([&]() {
+    threads[tid] = std::thread([tid, &locals, total, GX, GY]() {
         LocalResult &lr = locals[tid];
 
         for (int idx = tid; idx < total; idx += NUM_THREADS) {
@@ -251,8 +251,7 @@ void work()
         }
     });
 
-    // optional: pin this worker thread to tid-th CPU
-    set_cpu_affinity(threads[NUM_THREADS - 1], tid);
+    set_cpu_affinity(threads[tid], tid);
   }
 
   for (auto &th : threads) {

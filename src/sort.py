@@ -7,7 +7,7 @@ from typing import List, Tuple, Optional
 LOG_DIR = "../logs/batch_testing"
 STDOUT_PATTERN = "stdout.*"
 STDERR_PATTERN = "stderr."
-EXCLUSION_TEXT = "Text file busy"
+EXCLUSION_TEXT = "/ram/var/spool/slurm/d"
 # The maximum length to print for the stderr first line
 MAX_STDERR_PREVIEW_LEN = 60 
 

@@ -16,7 +16,7 @@
 using std::max;
 using std::min;
 
-constexpr int STEP = 5;
+constexpr int STEP = 6;
 constexpr float LIMIT = 6.0;
 constexpr float threshold = 8.0;
 constexpr int SMALL_COUNT_LIMIT = 9;
@@ -25,7 +25,7 @@ constexpr int ITERATION_COUNT = 10;
 
 
 constexpr int LEN = 512;
-constexpr int PSF_SIZE = 15;
+constexpr int PSF_SIZE = 13;
 
 constexpr float bkg_rate = 1e-5;
 constexpr int TIME = 1000;
@@ -382,4 +382,4 @@ int main()
     work();
     write_result();
     return 0;
-}
+} 

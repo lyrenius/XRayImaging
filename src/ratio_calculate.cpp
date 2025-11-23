@@ -287,9 +287,9 @@ struct LocalResult {
 
 void work()
 {
-  const int GX = LEN / STEP;
-  const int GY = LEN / STEP;
-  const int total = GX * GY;
+  constexpr int GX = LEN / STEP;
+  constexpr int GY = LEN / STEP;
+  constexpr int total = GX * GY;
 
   static std::thread threads[NUM_THREADS];
   LocalResult locals[NUM_THREADS];

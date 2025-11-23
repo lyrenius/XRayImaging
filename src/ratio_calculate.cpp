@@ -162,15 +162,15 @@ void calc_sum()
 
 void preworker(int id)
 {
-  constexpr int GX = LEN / STEP;
-  constexpr int GY = LEN / STEP;
-  constexpr int total = GX * GY;
+    constexpr int GX = LEN / STEP;
+    constexpr int GY = LEN / STEP;
+    constexpr int total = GX * GY;
 
-  for (int idx = id; idx < total; idx += NUM_THREADS) {
-    int x = idx / GY;
-    int y = idx % GY;
-    calc(x * STEP, y * STEP);
-  }
+    for (int idx = id; idx < total; idx += NUM_THREADS) {
+        int x = idx / GY;
+        int y = idx % GY;
+        calc(x * STEP, y * STEP);
+    }
 }
 
 void prework()

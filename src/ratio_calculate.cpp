@@ -80,8 +80,8 @@ void calc(int x, int y)
 
   constexpr float center_x = 256;
   constexpr float center_y = 256;
-  constexpr float inv_max_distance = 1.0f / max_distance;
   constexpr float max_distance = 362.039;
+  constexpr float inv_max_distance = 1.0f / max_distance;
 
   float dx = center_x - x - 0.5;
   float dy = center_y - y - 0.5;

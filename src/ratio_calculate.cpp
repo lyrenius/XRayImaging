@@ -85,18 +85,18 @@ void calc(int x, int y)
 
   float dx = center_x - x - 0.5f;
   float dy = center_y - y - 0.5f;
-  float distance = std::sqrtf(square_sum(dx, dy));
+  float distance = sqrtf(square_sum(dx, dy));
 
   float distance_scale = distance * inv_max_distance;
   float eccentricity = 0.9 * distance_scale;
 
   float sigma_minor = 0.5f + distance_scale * 2.5f;
   float denom = 1.0f - eccentricity * eccentricity;
-  float sigma_major = sigma_minor / std::sqrtf(denom);
+  float sigma_major = sigma_minor / sqrtf(denom);
 
-  float angle = std::atan2f(dy, dx);
-  float cos_angle = std::cosf(angle);
-  float sin_angle = std::sinf(angle);
+  float angle = atan2f(dy, dx);
+  float cos_angle = cosf(angle);
+  float sin_angle = sinf(angle);
 
   float normalization_factor = 1.0f / (2.0f * static_cast<float>(M_PI) * sigma_major * sigma_minor);
 
@@ -114,7 +114,7 @@ void calc(int x, int y)
         float major_coord = (delta_x * cos_angle + delta_y * sin_angle) / sigma_major;
         float minor_coord = (delta_x * sin_angle - delta_y * cos_angle) / sigma_minor;
         float exponent = (square_sum(major_coord, minor_coord)) * 0.5f;
-        float psf_value = normalization_factor * std::expf(-exponent);
+        float psf_value = normalization_factor * expf(-exponent);
 
         psf_s[psf_len] = psf_value;
         psf_c[psf_len] = c;
@@ -142,7 +142,7 @@ void calc(int x, int y)
   for (int k = 0; k < psf_len; ++k) {
     float s = psf_s[k];
     float val = (R * s + bkg_rate) / bkg_rate;
-    res += psf_c[k] * std::log(val);
+    res += psf_c[k] * logf(val);
   }
 
   ratio[x][y] = res - TIME * R;

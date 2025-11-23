@@ -18,13 +18,15 @@ fi
 
 CFITSIO_PATH=$SLURM_SUBMIT_DIR/cfitsio
 
-g++ -std=c++20 -O3 -march=native $SLURM_SUBMIT_DIR/src/ratio_calculate.cpp \
+g++ -std=c++20 -Ofast -march=native $SLURM_SUBMIT_DIR/src/ratio_calculate.cpp \
   -I $CFITSIO_PATH/include \
   -L $CFITSIO_PATH/lib \
   -Wl,-rpath,"$CFITSIO_PATH/lib" \
   -lcfitsio \
   -lpthread \
   -ffast-math -funroll-loops \
+  -fomit-frame-pointer \
+  -mfma -mavx2 \
   -DNUM_THREADS=${NUM_THREADS:-1} \
   -o $SLURM_SUBMIT_DIR/bin/ratio_calculate
 

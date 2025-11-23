@@ -8,8 +8,6 @@
 #include <chrono>
 #include <thread>
 #include <pthread.h>
-#include <cstdio>
-#include <cstdlib>
 
 #ifndef NUM_THREADS
 #define NUM_THREADS 16
@@ -275,69 +273,29 @@ void read_data()
     int status = 0;
     int hdutype = 0;
     long nrows = 0;
-    int col_x = 0, col_y = 0;
     int anynul = 0;
 
     const char* submit_dir = std::getenv("SLURM_SUBMIT_DIR");
+
     std::string mock_file = std::string(submit_dir) + "/data/mock_data.fits";
-
-    // --- CHANGE START: Read file into RAM ---
-    FILE *diskfile = fopen(mock_file.c_str(), "rb");
-    if (!diskfile) {
-        fprintf(stderr, "Error opening file: %s\n", mock_file.c_str());
-        return;
-    }
-
-    fseek(diskfile, 0, SEEK_END);
-    long filesize = ftell(diskfile);
-    fseek(diskfile, 0, SEEK_SET);
-
-    // Use a vector for automatic memory management (RAII)
-    // +1 for safety, though strictly not needed for binary
-    std::vector<char> mem_buffer(filesize + 1); 
-
-    if (fread(mem_buffer.data(), 1, filesize, diskfile) != (size_t)filesize) {
-        fprintf(stderr, "Error reading file into memory\n");
-        fclose(diskfile);
-        return;
-    }
-    fclose(diskfile); // Done with disk I/O
-    // --- CHANGE END ---
-
-    // Pass memory buffer to CFITSIO
-    // Note: We cast filesize to size_t, and pass the address of the data pointer
-    void *buff_ptr = mem_buffer.data();
-    size_t buff_size = (size_t)filesize;
+    fits_open_file(&fptr, mock_file.c_str(), READONLY, &status);
     
-    // "memfile" is just a label, it doesn't affect functionality
-    fits_open_memfile(&fptr, "memfile", READONLY, &buff_ptr, &buff_size, 0, NULL, &status);
-
-    if (status) {
-        fits_report_error(stderr, status);
-        return;
-    }
-
-    // --- Existing Logic Below (Unchanged) ---
 
     // Python hdu[1] -> CFITSIO HDU
     fits_movabs_hdu(fptr, 2, &hdutype, &status);
 
-    fits_get_num_rows(fptr, &nrows, &status);
-
-    fits_get_colnum(fptr, CASEINSEN, const_cast<char *>("x"), &col_x, &status);
-    fits_get_colnum(fptr, CASEINSEN, const_cast<char *>("y"), &col_y, &status);
+    fits_get_num_rows(fptr, &nrows, &status);    
 
     std::vector<int> x(nrows), y(nrows);
 
-    fits_read_col(fptr, TINT, col_x, 1, 1, nrows, nullptr,
+    fits_read_col(fptr, TINT, 1, 1, 1, nrows, nullptr,
                     x.data(), &anynul, &status);
-
-    fits_read_col(fptr, TINT, col_y, 1, 1, nrows, nullptr,
+    
+    fits_read_col(fptr, TINT, 2, 1, 1, nrows, nullptr,
                     y.data(), &anynul, &status);
+    
 
     fits_close_file(fptr, &status);
-    
-    // Note: mem_buffer is destroyed here automatically, cleaning up RAM.
 
     for(int i = 0; i < nrows; i++) {
         count[x[i]][y[i]]++;
@@ -349,22 +307,18 @@ void write_result()
     fitsfile *fptr = nullptr;
     int status = 0;
 
-    // --- CHANGE START: Create file in RAM first ---
-    // For writing, we must use malloc-compatible pointers because cfitsio might realloc
-    void *mem_buff = NULL; 
-    size_t mem_size = 0; 
+    // "!" to overwrite existing file
+    fits_create_file(&fptr, "!data/detection_info.fits", &status);
     
-    // 2880 is the standard FITS block size increment
-    // we pass standard realloc function
-    fits_create_memfile(&fptr, &mem_buff, &mem_size, 2880, realloc, &status);
-    // --- CHANGE END ---
 
     // primary HDU
     fits_create_img(fptr, 8, 0, nullptr, &status);  // BITPIX=8
+    
 
     fits_write_comment(fptr,
                         const_cast<char *>("This file storages the info of detected sources"),
                         &status);
+    
 
     // binary table
     char *ttype[] = {
@@ -373,6 +327,8 @@ void write_result()
         const_cast<char *>("countrate")
     };
 
+    // In Python you used 'I', 'I', 'D'. If you want exact layout, use "1I","1I","1D"
+    // Here we keep the same: x,y as unsigned 16-bit int, R as float64.
     char *tform[] = {
         const_cast<char *>("1I"),
         const_cast<char *>("1I"),
@@ -390,36 +346,23 @@ void write_result()
     fits_create_tbl(fptr, BINARY_TBL, nrows, 3,
                     ttype, tform, tunit,
                     const_cast<char *>("DETECTION_INFO"), &status);
+    
 
     fits_write_col(fptr, TINT, 1, 1, 1, nrows,
                     source_x.data(), &status);
+    
 
     fits_write_col(fptr, TINT, 2, 1, 1, nrows,
                     source_y.data(), &status);
+    
 
     fits_write_col(fptr, TDOUBLE, 3, 1, 1, nrows,
                     source_R.data(), &status);
+    
 
-    // Close the memfile - this finalizes the binary data in mem_buff
     fits_close_file(fptr, &status);
+    
 
-    // --- CHANGE START: Dump RAM buffer to Disk ---
-    if (status == 0 && mem_buff != NULL && mem_size > 0) {
-        // Note: The "!" overwrite syntax is handled by us manually now
-        std::string out_path = "data/detection_info.fits";
-        FILE *outfile = fopen(out_path.c_str(), "wb");
-        
-        if (outfile) {
-            fwrite(mem_buff, 1, mem_size, outfile);
-            fclose(outfile);
-        } else {
-            fprintf(stderr, "Failed to write output file to disk\n");
-        }
-        
-        // Vital: Free the memory cfitsio allocated
-        free(mem_buff);
-    }
-    // --- CHANGE END ---
 }
 
 int main()

@@ -69,7 +69,46 @@ inline float fast_exp_schaudt(float x) {
     return cast.f;
 }
 
-inline float compute_ratio_avx512(float R, const float* psf_s, const int* psf_c, int psf_len) {
+float compute_tmp_R_avx512(const float* psf_s,
+                           const float* psf_c,
+                           int psf_len,
+                           float R,
+                           float TIME)
+{
+    // mask for the active lanes
+    __mmask16 mask = (1u << psf_len) - 1;
+
+    __m512 vR    = _mm512_set1_ps(R);
+    __m512 vbkg  = _mm512_set1_ps(bkg_rate);
+    __m512 vTIME = _mm512_set1_ps(TIME);
+
+    // masked loads: only lanes < psf_len are valid
+    __m512 s = _mm512_maskz_loadu_ps(mask, psf_s);
+    __m512 c = _mm512_maskz_loadu_ps(mask, psf_c);
+
+    // compute:
+    // num = R * s
+    __m512 num = _mm512_mul_ps(vR, s);
+
+    // denom = (num + bkg_rate) * TIME
+    __m512 denom = _mm512_mul_ps(_mm512_add_ps(num, vbkg), vTIME);
+
+    // term = c * num / denom
+    __m512 term = _mm512_div_ps(_mm512_mul_ps(c, num), denom);
+
+    // masked horizontal sum
+    float tmp[16];
+    _mm512_storeu_ps(tmp, term);
+
+    float result = 0.0f;
+    for (int i = 0; i < psf_len; i++)
+        result += tmp[i];
+
+    return result;
+}
+
+
+inline float compute_ratio_avx512(float R, const float* psf_s, const float* psf_c, int psf_len) {
 
     // 1. Pre-calculate Scalar Constants
     float multiplier = R / bkg_rate;
@@ -94,10 +133,7 @@ inline float compute_ratio_avx512(float R, const float* psf_s, const int* psf_c,
     // and safest way to handle partial vectors.
     
     __m512 s = _mm512_maskz_loadu_ps(mask, &psf_s[0]);          // Load N floats
-    __m512i c_i = _mm512_maskz_loadu_epi32(mask, &psf_c[0]);    // Load N ints
-
-    // B. Convert psf_c (int) to psf_c_f (float)
-    __m512 c_f = _mm512_cvtepi32_ps(c_i); 
+    __m512 c_f = _mm512_maskz_loadu_ps(mask, &psf_c[0]);    // Load N ints
 
     // C. Calculate 'val'
     __m512 val = _mm512_fmadd_ps(s, v_mult, v_one);
@@ -158,7 +194,7 @@ void calc(int x, int y)
 
   // ---- fixed-size arrays instead of vector ----
   float psf_s[16] __attribute__((aligned(64)));   // PSF value
-  int   psf_c[16] __attribute__((aligned(64)));   // counts
+  float psf_c[16] __attribute__((aligned(64)));   // counts
   int   psf_len = 0;
 
   for (int i = min_x; i <= max_x; ++i) {

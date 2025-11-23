@@ -47,7 +47,7 @@ echo "================================================================"
 echo "[$(date +"%Y-%m-%d %H:%M:%S.%3N")] Running..."
 echo "================================================================"
 
-measure_step "ratio_calculate" $SLURM_SUBMIT_DIR/bin/ratio_calculate
+$SLURM_SUBMIT_DIR/bin/ratio_calculate
 
 echo "================================================================"
 echo "[$(date +"%Y-%m-%d %H:%M:%S.%3N")] Checking..."

@@ -61,6 +61,20 @@ inline float square_sum(float x,float y)
     return x * x + y * y;
 }
 
+inline float fast_exp_schaudt(float x) {
+    // 12102203.0f is the magic scalar
+    union { float f; int32_t i; } cast;
+    cast.i = (int32_t)(12102203.1616540425f * x + 1064986823.010288f); 
+    return cast.f;
+}
+
+inline float fast_log_raw(float x) {
+    union { float f; int32_t i; } vx = { x };
+    float y = (float)vx.i; 
+    y *= 1.1920928955078125e-7f; // 1 / 2^23
+    return y - 126.94269504f;    // Subtract bias (approx 127)
+}
+
 void calc(int x, int y)
 {
   int min_x = max(0, x - PSF_SIZE / 2);
@@ -114,7 +128,9 @@ void calc(int x, int y)
         float major_coord = (delta_x * cos_angle + delta_y * sin_angle) / sigma_major;
         float minor_coord = (delta_x * sin_angle - delta_y * cos_angle) / sigma_minor;
         float exponent = (square_sum(major_coord, minor_coord)) * 0.5f;
-        float psf_value = normalization_factor * expf(-exponent);
+
+        // float psf_value = normalization_factor * expf(-exponent);
+        float psf_value = normalization_factor * fast_exp_schaudt(-exponent);
 
         psf_s[psf_len] = psf_value;
         psf_c[psf_len] = c;
@@ -142,7 +158,7 @@ void calc(int x, int y)
   for (int k = 0; k < psf_len; ++k) {
     float s = psf_s[k];
     float val = (R * s + bkg_rate) / bkg_rate;
-    res += psf_c[k] * logf(val);
+    res += psf_c[k] * fast_log_raw(val);
   }
 
   ratio[x][y] = res - TIME * R;

@@ -22,7 +22,7 @@ constexpr float LIMIT = 6.0;
 constexpr float threshold = 8.0;
 constexpr int SMALL_COUNT_LIMIT = 9;
 
-constexpr int ITERATION_COUNT = 10;
+constexpr int ITERATION_COUNT = 1;
 
 
 constexpr int LEN = 512;
@@ -220,14 +220,7 @@ void calc(int x, int y)
   float R = 0.05f;
 
   for (int iter = 0; iter < ITERATION_COUNT; ++iter) {
-    float tmp_R = 0.0f;
-    for (int k = 0; k < psf_len; ++k) {
-      float s = psf_s[k];
-      float num = R * s;
-      float denom_rs = (num + bkg_rate) * TIME;
-      tmp_R += psf_c[k] * num / denom_rs;
-    }
-    R = tmp_R;
+    R = compute_tmp_R_avx512(psf_s, psf_c, psf_len, R, TIME);
   }
 
     Rval[x][y] = R;

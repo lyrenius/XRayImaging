@@ -101,8 +101,8 @@ void calc(int x, int y)
   float normalization_factor = 1.0f / (2.0f * static_cast<float>(M_PI) * sigma_major * sigma_minor);
 
   // ---- fixed-size arrays instead of vector ----
-  float psf_s[PSF_SIZE * PSF_SIZE];   // PSF value
-  int   psf_c[PSF_SIZE * PSF_SIZE];   // counts
+  static float psf_s[PSF_SIZE * PSF_SIZE];   // PSF value
+  static int   psf_c[PSF_SIZE * PSF_SIZE];   // counts
   int   psf_len = 0;
 
   for (int i = min_x; i <= max_x; ++i) {
@@ -175,11 +175,11 @@ void preworker(int id)
 
 void prework()
 {
-    std::vector<std::thread> threads;
+    static std::thread threads[NUM_THREADS];
 
     for(int i = 0; i < NUM_THREADS; i++) {
-        threads.emplace_back(preworker, i);
-        set_cpu_affinity(threads.back(), i);
+        threads[i] = std::thread(preworker, i);
+        set_cpu_affinity(threads[i], i);
     }
 
     for(auto& th : threads) {

@@ -8,6 +8,7 @@
 #include <chrono>
 #include <thread>
 #include <pthread.h>
+#include <immintrin.h>
 
 #ifndef NUM_THREADS
 #define NUM_THREADS 16
@@ -68,11 +69,52 @@ inline float fast_exp_schaudt(float x) {
     return cast.f;
 }
 
-inline float fast_log_raw(float x) {
-    union { float f; int32_t i; } vx = { x };
-    float y = (float)vx.i; 
-    y *= 1.1920928955078125e-7f; // 1 / 2^23
-    return y - 126.94269504f;    // Subtract bias (approx 127)
+inline float compute_ratio_avx512(float R, const float* psf_s, const int* psf_c, int psf_len) {
+
+    // 1. Pre-calculate Scalar Constants
+    float multiplier = R / bkg_rate;
+
+    __m512 v_mult     = _mm512_set1_ps(multiplier);
+    __m512 v_one      = _mm512_set1_ps(1.0f);
+    __m512 v_scale    = _mm512_set1_ps(1.1920928955078125e-7f);
+    __m512 v_offset   = _mm512_set1_ps(126.94269504f);
+
+    // 2. Create Mask for psf_len (since psf_len < 16)
+    // Example: if psf_len=5, mask = (1 << 5) - 1 = 0b11111 (only first 5 lanes are active)
+    __mmask16 mask = (1U << psf_len) - 1;
+
+    // 3. Load Data using Masked Loads
+    // Masked loads ensure we only use the memory up to psf_len, but still
+    // read a full 64-byte vector starting at the aligned address.
+    // The mask ensures the unused lanes (those > psf_len) are zeroed out.
+    
+    // We use loadu (unaligned load) with the mask. While the start address 
+    // is aligned, the use of a mask is inherently an unaligned-style operation
+    // in terms of the data boundary, and using loadu with maskz is the standard 
+    // and safest way to handle partial vectors.
+    
+    __m512 s = _mm512_maskz_loadu_ps(mask, &psf_s[0]);          // Load N floats
+    __m512i c_i = _mm512_maskz_loadu_epi32(mask, &psf_c[0]);    // Load N ints
+
+    // B. Convert psf_c (int) to psf_c_f (float)
+    __m512 c_f = _mm512_cvtepi32_ps(c_i); 
+
+    // C. Calculate 'val'
+    __m512 val = _mm512_fmadd_ps(s, v_mult, v_one);
+
+    // D. The Bit Hack
+    __m512i val_i = _mm512_castps_si512(val);
+    __m512 y = _mm512_cvtepi32_ps(val_i); 
+    __m512 term = _mm512_fmsub_ps(y, v_scale, v_offset);
+
+    // E. Final Accumulation
+    // Calculate the weighted product (c_f * term)
+    __m512 v_products = _mm512_mul_ps(c_f, term);
+    
+    // 4. Horizontal Reduction (Sum the 16 lanes into a single scalar)
+    // The product for masked-out lanes is zero, so this correctly sums only 
+    // the first 'psf_len' elements.
+    return _mm512_reduce_add_ps(v_products);
 }
 
 void calc(int x, int y)
@@ -115,8 +157,8 @@ void calc(int x, int y)
   float normalization_factor = 1.0f / (2.0f * static_cast<float>(M_PI) * sigma_major * sigma_minor);
 
   // ---- fixed-size arrays instead of vector ----
-  float psf_s[PSF_SIZE * PSF_SIZE];   // PSF value
-  int   psf_c[PSF_SIZE * PSF_SIZE];   // counts
+  float psf_s[16] __attribute__((aligned(64)));   // PSF value
+  int   psf_c[16] __attribute__((aligned(64)));   // counts
   int   psf_len = 0;
 
   for (int i = min_x; i <= max_x; ++i) {
@@ -152,16 +194,21 @@ void calc(int x, int y)
     R = tmp_R;
   }
 
-  Rval[x][y] = R;
+    Rval[x][y] = R;
 
-  float res = 0;
-  for (int k = 0; k < psf_len; ++k) {
-    float s = psf_s[k];
-    float val = (R * s + bkg_rate) / bkg_rate;
-    res += psf_c[k] * fast_log_raw(val);
-  }
+    ratio[x][y] = compute_ratio_avx512(R, psf_s, psf_c, psf_len) - TIME * R;
 
-  ratio[x][y] = res - TIME * R;
+    // float res = 0;
+    // for (int k = 0; k < psf_len; ++k) {
+    //     float s = psf_s[k];
+    //     float val = (R * s + bkg_rate) / bkg_rate;
+    //     union { float f; int32_t i; } vx = { val };
+    //     float y = (float)vx.i; 
+    //     y *= 1.1920928955078125e-7f; // 1 / 2^23
+    //     res += psf_c[k] * (y - 126.94269504f);
+    // }
+
+    // ratio[x][y] = res - TIME * R;
 }
 
 void calc_sum()
